@@ -86,6 +86,7 @@ label.file input{position:absolute;opacity:0;width:1px;height:1px}
 .chk input{width:18px;height:18px;accent-color:var(--accent)}
 .note{font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
 .del{color:var(--bad)}
+.copybox{width:100%;min-height:120px;font:12px var(--f-mono)}
 @media (max-width:640px){.roles{margin-left:0;width:100%}.roles button{flex:1}}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{opacity:0;transform:translate(-50%,8px)}}}
 </style>
@@ -99,6 +100,7 @@ label.file input{position:absolute;opacity:0;width:1px;height:1px}
 </header>
 <main><div class="page" id="app"></div></main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
 const ROLES={boss:'Руководитель',snab:'Снабженец',zav:'Завсклад'};
@@ -252,7 +254,7 @@ function payPill(p){return p==='debt'?'<span class="pill p-bad">в долг</spa
 function purchases(){
   if(view==='new')return purchaseForm();
   if(view)return purchaseView(view);
-  return `<div class="head"><h1>Закупки</h1><button class="btn" data-act="newPurchase">+ Новая закупка</button></div>
+  return `<div class="head"><h1>Закупки</h1><div class="row">${expBtns('purchases')}<button class="btn" data-act="newPurchase">+ Новая закупка</button></div></div>${copyBox()}
   <div class="card"><div class="scroll"><table><thead><tr><th>№</th><th>Дата</th><th>Поставщик</th><th>Оплата</th><th class="num">Позиций</th><th class="num">Сумма</th><th>Статус</th></tr></thead><tbody>
   ${S.purchases.slice().reverse().map(z=>`<tr class="click" data-open-z="${z.id}"><td>${z.no}</td><td>${dd(z.date)}</td><td>${esc(sup(z.sid).name)}</td><td>${payPill(z.pay)}</td><td class="num">${z.lines.length}</td><td class="num">${money(lineSum(z.lines),z.cur)}</td><td>${stPill(z.status)}</td></tr>`).join('')}
   </tbody></table></div></div>`;
@@ -351,7 +353,7 @@ function submitReceive(form){
 function issues(){
   if(view==='new')return issueForm();
   if(view)return waybill(view);
-  return `<div class="head"><h1>Выдача подрядчикам</h1>${role==='zav'?'<button class="btn" data-act="newIssue">+ Новая выдача</button>':''}</div>
+  return `<div class="head"><h1>Выдача подрядчикам</h1><div class="row">${expBtns('issues')}${role==='zav'?'<button class="btn" data-act="newIssue">+ Новая выдача</button>':''}</div></div>${copyBox()}
   <div class="card"><div class="scroll"><table><thead><tr><th>№</th><th>Дата</th><th>Подрядчик</th><th>Получил</th><th class="num">Позиций</th>${prices()?'<th class="num">Сумма</th>':''}<th>Подпись</th></tr></thead><tbody>
   ${S.issues.slice().reverse().map(n=>`<tr class="click" data-open-n="${n.id}"><td>${n.no}</td><td>${dd(n.date)}</td><td>${esc(con(n.cid).name)}</td><td>${esc(n.who)}</td><td class="num">${n.lines.length}</td>${prices()?`<td class="num">${fmt(n.lines.reduce((a,l)=>a+l.qty*avgPrice(l.pid),0))}</td>`:''}<td>${n.photo?'<span class="pill p-ok">фото есть</span>':'<span class="pill p-wait">нет фото</span>'}</td></tr>`).join('')}
   </tbody></table></div></div>`;
@@ -391,6 +393,7 @@ function submitIssue(){
 function waybill(id){
   const n=S.issues.find(x=>x.id===id);
   return `<div class="head"><div><button class="btn link sm" data-back="issues">← Выдачи</button><h1>Накладная ${n.no}</h1></div>
+    <div class="row">${expBtns('waybill:'+n.id)}</div>
     ${n.photo?'<span class="pill p-ok">подписана, фото: '+esc(n.photo)+'</span>':(role==='zav'?`<label class="file btn ghost" for="photo-${n.id}">Прикрепить фото подписи<input type="file" id="photo-${n.id}" accept="image/*" data-photo="${n.id}"></label>`:'<span class="pill p-wait">нет фото подписи</span>')}</div>
   <div class="scroll"><div class="waybill">
     <h3>Накладная на выдачу № ${n.no} от ${dd(n.date)}.${n.date.slice(0,4)}</h3>
@@ -400,6 +403,7 @@ function waybill(id){
     </tbody></table>
     <div class="sign"><div><b>Завсклад</b>Отпустил: ФИО, подпись</div><div><b>${esc(n.who)}</b>Получил: подпись</div></div>
   </div></div>
+  ${copyBox()}
   <p class="note">В рабочей программе накладная откроется как PDF для печати. Подписанный лист завсклад фотографирует и прикрепляет сюда.</p>`;
 }
 
@@ -409,7 +413,7 @@ function stock(){
   if(view)return productView(view);
   const rows=S.products.map(p=>({p,s:stockOf(p.id),a:avgPrice(p.id)})).filter(x=>x.s.ordered||x.s.recv);
   let total=0;rows.forEach(x=>total+=x.s.left*x.a);
-  return `<div class="head"><h1>Остатки</h1>${pr?`<span class="num"><b>Всего: ${fmt(total)} сум</b></span>`:''}</div>
+  return `<div class="head"><h1>Остатки</h1><div class="row">${pr?`<span class="num"><b>Всего: ${fmt(total)} сум</b></span>`:''}${expBtns('stock')}</div></div>${copyBox()}
   <div class="card"><div class="scroll"><table><thead><tr><th>Товар</th><th>Ед.</th>${pr?'<th class="num">Закуплено</th>':''}<th class="num">Принято</th><th class="num">Выдано</th><th class="num">Возврат</th><th class="num">Остаток</th>${pr?'<th class="num">Ср. цена</th><th class="num">Остаток, сум</th>':''}</tr></thead><tbody>
   ${rows.map(({p,s,a})=>`<tr class="click" data-prod="${p.id}"><td>${esc(p.name)}</td><td>${p.unit}</td>${pr?`<td class="num">${fmt(s.ordered)}</td>`:''}<td class="num" style="${s.recv<s.ordered&&pr?'color:var(--bad)':''}">${fmt(s.recv)}</td><td class="num">${fmt(s.iss)}</td><td class="num">${fmt(s.ret)}</td><td class="num"><b>${fmt(s.left)}</b></td>${pr?`<td class="num">${fmt(Math.round(a))}</td><td class="num">${fmt(Math.round(s.left*a))}</td>`:''}</tr>`).join('')}
   </tbody></table></div>
@@ -439,12 +443,12 @@ function suppliers(){
     <div class="kpi"><small>Долг сейчас, сум</small><b style="color:var(--warn)">${fmt(d.uzs)}</b><small>изменение ${d.uzs-s.open.uzs>=0?'+':''}${fmt(d.uzs-s.open.uzs)}</small></div>
     <div class="kpi"><small>Долг сейчас, $</small><b>${fmt(d.usd)}</b><small>ведётся отдельно от сумов</small></div>
   </div>
-  <div class="row"><button class="btn ghost" data-supform="pay">+ Оплата или скидка</button><button class="btn ghost" data-supform="ret">+ Возврат товара</button></div>
+  <div class="row"><button class="btn ghost" data-supform="pay">+ Оплата или скидка</button><button class="btn ghost" data-supform="ret">+ Возврат товара</button>${expBtns('akt:'+sid)}</div>${copyBox()}
   ${form==='pay'?payForm(sid):form==='ret'?retForm(sid):''}
   <div class="card"><h2>Акт сверки</h2><div class="scroll"><table><thead><tr><th>Дата</th><th>Операция</th><th></th><th class="num">Долг +</th><th class="num">Долг −</th><th class="num">Сальдо, сум</th></tr></thead><tbody>
   <tr><td></td><td>Сальдо на начало</td><td></td><td></td><td></td><td class="num">${fmt(s.open.uzs)}</td></tr>
   ${ops.map(o=>{run[o.cur]+=(o.plus||0)-(o.minus||0);return `<tr><td>${dd(o.d)}</td><td>${esc(o.t)}</td><td>${payPill(o.pill)}</td><td class="num">${o.plus?money(o.plus,o.cur):''}</td><td class="num">${o.minus?money(o.minus,o.cur):''}</td><td class="num">${fmt(run.uzs)}${o.cur==='usd'?' · '+fmt(run.usd)+' $':''}</td></tr>`}).join('')}
-  </tbody></table></div><p class="note">В рабочей программе — кнопка «Выгрузить акт в Excel» для сверки с актом из 1С поставщика.</p></div>`;
+  </tbody></table></div><p class="note">Акт выгружается в Excel кнопкой выше — для сверки с актом из 1С поставщика.</p></div>`;
 }
 function payForm(sid){
   return `<form class="card" id="payform" data-sid="${sid}" novalidate><h3>Оплата или скидка</h3><div class="row">
@@ -470,7 +474,7 @@ function reports(){
   const day=(view&&view.day)||today();
   const zs=S.purchases.filter(z=>z.date===day),rs=S.purchases.filter(z=>z.recvDate===day),ns=S.issues.filter(n=>n.date===day);
   const by={debt:0,cash:0,perech:0};S.purchases.filter(z=>z.cur==='uzs').forEach(z=>by[z.pay]+=lineSum(z.lines));
-  return `<div class="head"><h1>Отчёт за день</h1><div class="f"><label for="rep-day">Дата</label><input id="rep-day" type="date" value="${day}"></div></div>
+  return `<div class="head"><h1>Отчёт за день</h1><div class="row"><div class="f"><label for="rep-day">Дата</label><input id="rep-day" type="date" value="${day}"></div>${expBtns('day:'+day)}</div></div>${copyBox()}
   <div class="kpis">
     <div class="kpi"><small>Отправлено на склад</small><b>${zs.length}</b><small>${zs.reduce((a,z)=>a+z.lines.filter(l=>l.pid).length,0)} позиций · ${fmt(zs.reduce((a,z)=>a+lineSum(z.lines),0))} сум</small></div>
     <div class="kpi"><small>Принято складом</small><b>${rs.length}</b><small>${rs.filter(z=>z.status==='diff').length} с расхождением</small></div>
@@ -492,7 +496,8 @@ const SC=[
   {id:'d',t:'Частичная выдача и накладная',steps:['Роль «Завсклад» → Выдача → «+ Новая выдача».','Выберите подрядчика, впишите ФИО, выдайте часть остатка.','Попробуйте выдать больше остатка: программа не даст.','На накладной прикрепите фото подписи (любая картинка).']},
   {id:'e',t:'Остаток считает программа',steps:['Роль «Руководитель» → Остатки: принято − выдано − возврат = остаток.','Нажмите на товар: видна вся история движения с документами.']},
   {id:'f',t:'Оплата, скидка, возврат',steps:['Роль «Руководитель» → Поставщики → «+ Оплата или скидка»: проведите оплату наличными.','Проведите скидку и возврат товара.','Проверьте акт сверки: сальдо после каждой операции.']},
-  {id:'g',t:'Отчёт за день',steps:['Роль «Руководитель» → Отчёты.','Выберите сегодняшнюю дату: видно, что отправлено, принято и выдано за день.']}
+  {id:'g',t:'Отчёт за день',steps:['Роль «Руководитель» → Отчёты.','Выберите сегодняшнюю дату: видно, что отправлено, принято и выдано за день.']},
+  {id:'h',t:'Выгрузка в Excel',steps:['Закупки, Остатки, Выдача, накладная, Поставщики (акт сверки), Отчёты: кнопка «Скачать Excel».','Откройте файл: числа — числами, можно считать формулами.','Роль «Завсклад» → Остатки → выгрузка: в файле нет цен и сумм.']}
 ];
 function scen(){
   const done=SC.filter(s=>S.checks[s.id]).length;
@@ -501,10 +506,79 @@ function scen(){
   <div class="scen">${SC.map(s=>`<div class="card"><label class="chk" for="sc-${s.id}"><input type="checkbox" id="sc-${s.id}" data-check="${s.id}" ${S.checks[s.id]?'checked':''}>${s.t}</label><ol>${s.steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`).join('')}</div>`;
 }
 
+/* ---------- экспорт в Excel ---------- */
+// В окне артефакта браузер блокирует скачивание файлов, поэтому там вместо файла копируем таблицу в буфер
+const canDownload=location.protocol==='file:'||/(^|\.)github\.io$/.test(location.hostname)||location.hostname==='localhost';
+let copied=null;
+function expBtns(kind){return canDownload?`<button class="btn ghost sm" data-exp="${kind}">Скачать Excel</button>`:`<button class="btn ghost sm" data-copy="${kind}">Скопировать для Excel</button>`}
+function copyBox(){return copied?`<div class="card"><p class="small">Выделите текст и скопируйте (Ctrl+C), затем вставьте в Excel. Файл .xlsx скачивается в версии на farik9797.github.io/crm/demo.html</p><textarea class="copybox" id="copybox" readonly>${esc(copied)}</textarea></div>`:''}
+const dfull=d=>d?d.slice(8,10)+'.'+d.slice(5,7)+'.'+d.slice(0,4):'';
+const r2=n=>Math.round(n*100)/100;
+function sheet(kind){
+  const pr=prices(),[k,arg]=kind.split(':');
+  if(k==='purchases'){
+    const rows=[['№','Дата','Поставщик','№ накладной поставщика','Оплата','Валюта','Товар','Ед.','Заказано','Принято','Цена','Сумма','Статус']];
+    S.purchases.forEach(z=>z.lines.forEach(l=>{const p=l.pid&&prod(l.pid);
+      rows.push([z.no,dfull(z.date),sup(z.sid).name,z.inv,PAY[z.pay],z.cur==='usd'?'$':'сум',lineName(l),p?p.unit:'рейс',l.qty,l.pid?(z.status==='transit'?'':(z.recv[l.pid]??0)):'',l.price,r2(l.qty*l.price),{transit:'в пути',diff:'расхождение',done:'принято'}[z.status]])}));
+    return {title:'Закупки',file:'zakupki',rows};
+  }
+  if(k==='stock'){
+    const h=['Товар','Ед.'];if(pr)h.push('Закуплено');h.push('Принято','Выдано','Возврат','Остаток');if(pr)h.push('Ср. цена','Остаток, сум');
+    const rows=[h];
+    S.products.forEach(p=>{const s=stockOf(p.id),a=avgPrice(p.id);if(!s.ordered&&!s.recv)return;
+      const r=[p.name,p.unit];if(pr)r.push(s.ordered);r.push(s.recv,s.iss,s.ret,s.left);if(pr)r.push(Math.round(a),Math.round(s.left*a));rows.push(r)});
+    return {title:'Остатки на '+dfull(today()),file:'ostatki',rows};
+  }
+  if(k==='issues'){
+    const h=['№','Дата','Подрядчик','Получил','Товар','Ед.','Кол-во'];if(pr)h.push('Сумма по ср. цене');h.push('Фото подписи');
+    const rows=[h];
+    S.issues.forEach(n=>n.lines.forEach(l=>{const p=prod(l.pid),r=[n.no,dfull(n.date),con(n.cid).name,n.who,p.name,p.unit,l.qty];if(pr)r.push(Math.round(l.qty*avgPrice(l.pid)));r.push(n.photo?'есть':'нет');rows.push(r)}));
+    return {title:'Выдачи подрядчикам',file:'vydachi',rows};
+  }
+  if(k==='waybill'){
+    const n=S.issues.find(x=>x.id===arg),rows=[['№','Наименование','Ед.','Кол-во']];
+    n.lines.forEach((l,i)=>rows.push([i+1,prod(l.pid).name,prod(l.pid).unit,l.qty]));
+    rows.push([],['Получатель',con(n.cid).name],['Отпустил (завсклад)','ФИО, подпись'],['Получил',n.who+', подпись']);
+    return {title:'Накладная на выдачу № '+n.no+' от '+dfull(n.date),file:'nakladnaya-'+n.no,rows};
+  }
+  if(k==='akt'){
+    const s=sup(arg),run={uzs:s.open.uzs,usd:s.open.usd};
+    const rows=[['Дата','Операция','Способ','Валюта','Долг +','Долг −','Сальдо, сум','Сальдо, $'],['','Сальдо на начало','','','','',r2(run.uzs),r2(run.usd)]];
+    const lbl={debt:'в долг',cash:'наличные',perech:'перечисление',disc:'скидка',ret:'возврат'};
+    supOps(arg).forEach(o=>{run[o.cur]+=(o.plus||0)-(o.minus||0);rows.push([dfull(o.d),o.t,lbl[o.pill]||'',o.cur==='usd'?'$':'сум',o.plus?r2(o.plus):'',o.minus?r2(o.minus):'',r2(run.uzs),r2(run.usd)])});
+    rows.push(['','Сальдо на '+dfull(today()),'','','','',r2(run.uzs),r2(run.usd)]);
+    return {title:'Акт сверки: '+s.name,file:'akt-sverki',rows};
+  }
+  if(k==='day'){
+    const rows=[['Раздел','Документ','Товар','Ед.','Кол-во','Сумма','Оплата']];
+    S.purchases.filter(z=>z.date===arg).forEach(z=>z.lines.forEach(l=>{const p=l.pid&&prod(l.pid);rows.push(['Отправлено на склад',z.no,lineName(l),p?p.unit:'рейс',l.qty,r2(l.qty*l.price),PAY[z.pay]])}));
+    S.purchases.filter(z=>z.recvDate===arg).forEach(z=>z.lines.filter(l=>l.pid).forEach(l=>rows.push(['Принято складом',z.no,prod(l.pid).name,prod(l.pid).unit,z.recv[l.pid]??0,'',''])));
+    S.issues.filter(n=>n.date===arg).forEach(n=>n.lines.forEach(l=>rows.push(['Выдано: '+con(n.cid).name,n.no,prod(l.pid).name,prod(l.pid).unit,l.qty,'',''])));
+    return {title:'Отчёт за '+dfull(arg),file:'otchet-'+arg,rows};
+  }
+}
+function download(kind){
+  if(typeof XLSX==='undefined'){toast('Не загрузилась библиотека Excel. Проверьте интернет и обновите страницу.');return}
+  const d=sheet(kind),aoa=[[d.title],['Выгружено '+dfull(today())+', роль: '+ROLES[role]],[]].concat(d.rows);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=d.rows[0].map((_,c)=>({wch:Math.min(45,Math.max(8,...d.rows.map(r=>String(r[c]??'').length+2)))}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Лист1');
+  XLSX.writeFile(wb,d.file+'.xlsx');toast('Файл '+d.file+'.xlsx скачан');
+}
+function copyTsv(kind){
+  const d=sheet(kind);
+  copied=[d.title].concat(d.rows.map(r=>r.map(v=>typeof v==='number'?String(v).replace('.',','):String(v??'').replace(/[\t\n]/g,' ')).join('\t'))).join('\n');
+  const done=()=>toast('Таблица скопирована. Вставьте в Excel (Ctrl+V)');
+  try{navigator.clipboard.writeText(copied).then(()=>{copied=null;render();done()},()=>{render();const t=$('#copybox');if(t){t.focus();t.select()}})}catch(e){render();const t=$('#copybox');if(t){t.focus();t.select()}}
+}
+
 /* ---------- события ---------- */
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-role],[data-tab],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform]');
+  const b=e.target.closest('[data-role],[data-tab],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy]');
   if(!b)return;const ds=b.dataset;
+  if(ds.exp)return download(ds.exp);
+  if(ds.copy)return copyTsv(ds.copy);
+  copied=null;
   if(ds.role){role=ds.role;try{localStorage.setItem(KEY+'-role',role)}catch(e){}if(!TABS[tab].r.includes(role))tab=Object.keys(TABS).find(k=>TABS[k].r.includes(role));view=null;draft=null;return render()}
   if(ds.tab)return go(ds.tab);
   if(ds.back)return go(ds.back);
