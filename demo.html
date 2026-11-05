@@ -121,8 +121,10 @@ const TABS={
   issues:{t:'Выдача',r:['boss','zav']},
   stock:{t:'Остатки',r:['boss','snab','zav']},
   suppliers:{t:'Поставщики',r:['boss']},
-  reports:{t:'Отчёты',r:['boss']}
+  reports:{t:'Отчёты',r:['boss']},
+  dict:{t:'Справочники',r:['boss','snab']}
 };
+const UNITS=['шт','м','м²','м³','кг','лист','мешок','рулон','упаковка','рейс'];
 // Демо-доступы: проверяются в браузере, защиты не дают
 const USERS={
   boss:{login:'rahbar',pass:'1111',d:'Видит всё: цены, долги поставщикам, отчёты'},
@@ -239,7 +241,7 @@ function renderChrome(){
 }
 function render(){
   renderChrome();
-  const f=role?{home,purchases,receive,issues,stock,suppliers,reports}[tab]:login;
+  const f=role?{home,purchases,receive,issues,stock,suppliers,reports,dict}[tab]:login;
   $('#app').innerHTML=`<div class="banner"><span>Демо для теста. Все данные — примеры. Всё, что вы введёте, хранится только в этом браузере.</span><button class="btn link sm" data-act="reset">Сбросить демо</button></div>`+f();
   save();
 }
@@ -314,7 +316,12 @@ function purchaseForm(){
       <td class="num" id="pl-s${i}">${fmt((+l.qty||0)*(+l.price||0))}</td>
       <td>${draft.lines.length>1?`<button type="button" class="btn link sm del" data-delline="${i}" aria-label="Удалить строку">✕</button>`:''}</td></tr>`}).join('')}
     </tbody></table></div>
-    <div><button type="button" class="btn ghost sm" data-act="addLine">+ Добавить строку</button></div>
+    <div class="row"><button type="button" class="btn ghost sm" data-act="addLine">+ Добавить строку</button>${draft.np?'':'<button type="button" class="btn ghost sm" data-act="newProdInline">+ Новый товар</button>'}</div>
+    ${draft.np?`<div class="card" style="background:var(--bg)"><h3>Новый товар в справочник</h3><div class="row">
+      <div class="f" style="flex:1;min-width:220px"><label for="np-name">Наименование</label><input id="np-name" data-np="name" value="${esc(draft.np.name)}" placeholder="как в накладной поставщика"></div>
+      <div class="f"><label for="np-unit">Единица</label><select id="np-unit" data-np="unit">${UNITS.map(u=>`<option ${draft.np.unit===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      <button type="button" class="btn sm" data-act="saveNewProd">Добавить и выбрать</button><button type="button" class="btn link sm" data-act="cancelNewProd">Отмена</button></div>
+      ${draft.np.err?`<p class="err" role="alert">${esc(draft.np.err)}</p>`:''}</div>`:''}
     <div class="head"><b class="num" id="pf-total">Итого: ${money(draftTotal(),draft.cur)}</b>
       <button type="submit" class="btn">Отправить на склад</button></div>
     <p class="note" id="pf-hint">${draft.pay==='debt'?'Сумма закупки добавится к долгу поставщику.':'Закупка сразу оплачена: долг поставщику не изменится, сумма попадёт в «'+PAY[draft.pay]+'».'}</p>
@@ -527,6 +534,65 @@ function scen(){
   <div class="scen">${SC.map(s=>`<div class="card"><label class="chk" for="sc-${s.id}"><input type="checkbox" id="sc-${s.id}" data-check="${s.id}" ${S.checks[s.id]?'checked':''}>${s.t}</label><ol>${s.steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`).join('')}</div>`;
 }
 
+/* ---------- Справочники ---------- */
+const DSUB={products:'Товары',suppliers:'Поставщики',contractors:'Подрядчики'};
+const usedProd=id=>S.purchases.some(z=>z.lines.some(l=>l.pid===id))||S.issues.some(n=>n.lines.some(l=>l.pid===id))||S.returns.some(v=>v.lines.some(l=>l.pid===id));
+const usedSup=id=>S.purchases.some(z=>z.sid===id)||S.payments.some(o=>o.sid===id)||S.returns.some(v=>v.sid===id);
+const usedCon=id=>S.issues.some(n=>n.cid===id);
+function dict(){
+  const subs=role==='boss'?Object.keys(DSUB):['products'];
+  const sub=subs.includes(view&&view.sub)?view.sub:'products',ed=view&&view.edit;
+  const add={products:'+ Добавить товар',suppliers:'+ Добавить поставщика',contractors:'+ Добавить подрядчика'}[sub];
+  let list='';
+  if(sub==='products')list=`<table><thead><tr><th>Наименование</th><th>Ед.</th><th class="num">Цена, ориентир</th><th class="num">На складе</th><th></th></tr></thead><tbody>
+    ${S.products.map(p=>`<tr class="click" data-dedit="${p.id}"><td>${esc(p.name)}</td><td>${esc(p.unit)}</td><td class="num">${p.price?fmt(p.price):'—'}</td><td class="num">${fmt(stockOf(p.id).left)}</td><td><span class="btn link sm">Изменить</span></td></tr>`).join('')}</tbody></table>`;
+  if(sub==='suppliers')list=`<table><thead><tr><th>Название</th><th>Телефон</th><th class="num">Долг на начало</th><th class="num">Долг сейчас</th><th></th></tr></thead><tbody>
+    ${S.suppliers.map(s=>{const d=debt(s.id);return `<tr class="click" data-dedit="${s.id}"><td>${esc(s.name)}</td><td>${esc(s.phone||'—')}</td><td class="num">${fmt(s.open.uzs)}${s.open.usd?' + '+fmt(s.open.usd)+' $':''}</td><td class="num">${fmt(d.uzs)}${d.usd?' + '+fmt(d.usd)+' $':''}</td><td><span class="btn link sm">Изменить</span></td></tr>`}).join('')}</tbody></table>`;
+  if(sub==='contractors')list=`<table><thead><tr><th>Название / ФИО</th><th>Объект</th><th>Телефон</th><th class="num">Выдач</th><th></th></tr></thead><tbody>
+    ${S.contractors.map(c=>`<tr class="click" data-dedit="${c.id}"><td>${esc(c.name)}</td><td>${esc(c.obj||'—')}</td><td>${esc(c.phone||'—')}</td><td class="num">${S.issues.filter(n=>n.cid===c.id).length}</td><td><span class="btn link sm">Изменить</span></td></tr>`).join('')}</tbody></table>`;
+  return `<div class="head"><h1>Справочники</h1><button class="btn" data-dedit="new">${add}</button></div>
+  ${subs.length>1?`<div><div class="seg">${subs.map(k=>`<button type="button" class="${k===sub?'on':''}" data-dsub="${k}">${DSUB[k]}</button>`).join('')}</div></div>`:''}
+  ${ed?dictForm(sub,ed):''}
+  <div class="card"><div class="scroll">${list}</div></div>`;
+}
+function dictForm(sub,id){
+  const isNew=id==='new',coll={products:S.products,suppliers:S.suppliers,contractors:S.contractors}[sub];
+  const x=isNew?{}:coll.find(i=>i.id===id)||{};
+  const used=!isNew&&{products:usedProd,suppliers:usedSup,contractors:usedCon}[sub](id);
+  const inp=(k,label,val,extra='')=>`<div class="f"><label for="df-${k}">${label}</label><input id="df-${k}" value="${esc(val??'')}" ${extra}></div>`;
+  let fields='';
+  if(sub==='products')fields=inp('name','Наименование',x.name,'style="min-width:280px"')+
+    `<div class="f"><label for="df-unit">Единица</label><select id="df-unit">${UNITS.map(u=>`<option ${(x.unit||'шт')===u?'selected':''}>${u}</option>`).join('')}</select></div>`+
+    inp('price','Цена, ориентир (сум)',x.price||'','class="pr" inputmode="decimal"');
+  if(sub==='suppliers')fields=inp('name','Название',x.name,'style="min-width:260px"')+inp('phone','Телефон',x.phone,'inputmode="tel"')+
+    inp('open-uzs','Долг на начало, сум',x.open?x.open.uzs:0,'class="pr" inputmode="decimal"')+inp('open-usd','Долг на начало, $',x.open?x.open.usd:0,'class="pr" inputmode="decimal"');
+  if(sub==='contractors')fields=inp('name','Название или ФИО',x.name,'style="min-width:260px"')+inp('obj','Объект',x.obj)+inp('phone','Телефон',x.phone,'inputmode="tel"');
+  return `<form class="card" id="dform" data-sub="${sub}" data-id="${id}" novalidate>
+    <h3>${isNew?{products:'Новый товар',suppliers:'Новый поставщик',contractors:'Новый подрядчик'}[sub]:'Изменить: '+esc(x.name)}</h3>
+    <div class="row">${fields}</div>
+    ${sub==='products'?'<p class="note">Цена — для подсказки в форме закупки. Фактическая цена указывается в каждой закупке.</p>':''}
+    <p class="err" id="df-err" role="alert"></p>
+    <div class="row"><button type="submit" class="btn">Сохранить</button><button type="button" class="btn link" data-dedit="">Отмена</button>
+    ${isNew?'':used?'<span class="muted small">Удалить нельзя: есть документы с этой записью</span>':`<button type="button" class="btn link del" data-ddel="${id}">Удалить</button>`}</div>
+  </form>`;
+}
+const num=v=>+String(v).replace(/\s/g,'').replace(',','.');
+function saveDict(f){
+  const sub=f.dataset.sub,id=f.dataset.id,isNew=id==='new',err=t=>{$('#df-err').textContent=t};
+  const coll={products:S.products,suppliers:S.suppliers,contractors:S.contractors}[sub];
+  const name=$('#df-name').value.trim().replace(/\s+/g,' ');
+  if(!name)return err('Впишите название.');
+  const dup=coll.find(i=>i.id!==id&&i.name.toLowerCase()===name.toLowerCase());
+  if(dup)return err('Запись «'+dup.name+'» уже есть в справочнике.');
+  let rec;
+  if(sub==='products'){const pr=$('#df-price').value.trim()===''?0:num($('#df-price').value);if(!(pr>=0))return err('Цена должна быть числом.');rec={name,unit:$('#df-unit').value,price:pr}}
+  if(sub==='suppliers'){const u=num($('#df-open-uzs').value||0),d=num($('#df-open-usd').value||0);if(isNaN(u)||isNaN(d))return err('Долг на начало должен быть числом (0, если долга нет).');rec={name,phone:$('#df-phone').value.trim(),open:{uzs:u,usd:d}}}
+  if(sub==='contractors')rec={name,obj:$('#df-obj').value.trim(),phone:$('#df-phone').value.trim()};
+  if(isNew){rec.id=sub[0]+Date.now();if(sub==='suppliers')rec.note='';coll.push(rec)}else Object.assign(coll.find(i=>i.id===id),rec);
+  addLog((isNew?'Добавлен':'Изменён')+' в справочник «'+DSUB[sub]+'»: '+name);
+  toast(isNew?'Добавлено: '+name:'Сохранено');view={sub};render();
+}
+
 /* ---------- Вход ---------- */
 function login(){
   const u=loginPick&&USERS[loginPick];
@@ -621,11 +687,14 @@ function copyTsv(kind){
 
 /* ---------- события ---------- */
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-pick],[data-tab],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy]');
+  const b=e.target.closest('[data-pick],[data-tab],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel]');
   if(!b)return;const ds=b.dataset;
   if(ds.exp)return download(ds.exp);
   if(ds.copy)return copyTsv(ds.copy);
   copied=null;
+  if(ds.dsub){view={sub:ds.dsub};return render()}
+  if(ds.dedit!==undefined){view={sub:(view&&view.sub)||'products',edit:ds.dedit||null};render();const n=$('#df-name');if(n){n.focus();n.scrollIntoView({block:'center'})}return}
+  if(ds.ddel){const sub=view.sub,k={products:'products',suppliers:'suppliers',contractors:'contractors'}[sub],x=S[k].find(i=>i.id===ds.ddel);S[k]=S[k].filter(i=>i.id!==ds.ddel);addLog('Удалён из справочника «'+DSUB[sub]+'»: '+x.name);toast('Удалено: '+x.name);view={sub};return render()}
   if(ds.pick){loginPick=ds.pick;loginErr='';render();const p=$('#lg-pass');if(p)p.focus();return}
   if(ds.tab)return go(ds.tab);
   if(ds.back)return go(ds.back);
@@ -641,11 +710,23 @@ document.addEventListener('click',e=>{
   if(a==='reset'){S=seed();view=null;draft=null;toast('Демо сброшено к исходным данным');return render()}
   if(a==='newPurchase')return go('purchases','new');
   if(a==='newIssue')return go('issues','new');
+  if(a==='newProdInline'){draft.np={name:'',unit:'шт',err:''};render();$('#np-name').focus();return}
+  if(a==='cancelNewProd'){draft.np=null;return render()}
+  if(a==='saveNewProd'){
+    const name=draft.np.name.trim().replace(/\s+/g,' ');
+    if(!name){draft.np.err='Впишите наименование.';return render()}
+    const dup=S.products.find(p=>p.name.toLowerCase()===name.toLowerCase());
+    if(dup){draft.np.err='«'+dup.name+'» уже есть — выберите его в списке товаров.';return render()}
+    const p={id:'p'+Date.now(),name,unit:draft.np.unit||'шт',price:0};S.products.push(p);addLog('Добавлен в справочник «Товары»: '+name);
+    let l=draft.lines.find(x=>!x.pid);if(!l){l={pid:'',qty:'',price:''};draft.lines.push(l)}l.pid=p.id;
+    draft.np=null;render();toast('Товар добавлен в справочник');const i=draft.lines.indexOf(l),q=$('#pl-q'+i);if(q)q.focus();return;
+  }
   if(a==='addLine'){draft.lines.push(tab==='purchases'?{pid:'',qty:'',price:''}:{pid:'',qty:''});return render()}
 });
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.d&&draft){draft[t.dataset.d]=t.value}
+  if(t.dataset.np&&draft&&draft.np){draft.np[t.dataset.np]=t.value}
   if(t.dataset.line!==undefined&&draft&&t.tagName==='INPUT'){
     const i=+t.dataset.line;draft.lines[i][t.dataset.k]=t.value.replace(',','.');
     if(tab==='purchases'){const l=draft.lines[i],c=$('#pl-s'+i);if(c)c.textContent=fmt((+l.qty||0)*(+l.price||0));$('#pf-total').textContent='Итого: '+money(draftTotal(),draft.cur)}
@@ -668,6 +749,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('submit',e=>{
   e.preventDefault();const f=e.target;
   if(f.id==='login')return doLogin();
+  if(f.id==='dform')return saveDict(f);
   if(f.id==='pform')return submitPurchase();
   if(f.id==='rform')return submitReceive(f);
   if(f.id==='iform')return submitIssue();
