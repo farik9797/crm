@@ -1,0 +1,34 @@
+#!/bin/sh
+# Собирает docs/ для GitHub Pages: исходники plan.html и demo.html написаны без <head> (формат артефакта), здесь добавляется шапка документа.
+set -e
+cd "$(dirname "$0")"
+mkdir -p docs
+HEAD='<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>'
+for f in plan.html demo.html; do
+  { printf '%s\n' "$HEAD"; cat "$f"; } > "docs/$f"
+done
+cat > docs/index.html <<HTML
+$HEAD
+<title>Учёт склада и закупок</title>
+<style>
+:root{--bg:#f3f5f4;--paper:#fff;--fg:#1b2422;--muted:#5b6865;--line:#d7dedb;--accent:#0f6b5c}
+@media (prefers-color-scheme:dark){:root{--bg:#121816;--paper:#1a2220;--fg:#e4ebe8;--muted:#97a6a2;--line:#2d3a37;--accent:#5cc2ad;color-scheme:dark}}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif;padding:48px 16px}
+main{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{margin:0 0 8px;font-size:28px}
+a.c{display:block;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;color:var(--fg);text-decoration:none}
+a.c:hover{border-color:var(--accent)}
+a.c b{color:var(--accent)} a.c span{display:block;color:var(--muted);font-size:14px}
+</style>
+<main>
+<h1>Учёт склада и закупок</h1>
+<a class="c" href="plan.html"><b>План программы</b><span>Роли, процесс, данные, экраны, этапы и вопросы к руководителю</span></a>
+<a class="c" href="demo.html"><b>Демо для теста</b><span>Кликабельный прототип: три роли, закупка, приёмка, выдача, остатки, долг поставщику</span></a>
+</main>
+HTML
+echo "docs/ собран"

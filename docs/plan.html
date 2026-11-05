@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>Склад и закупки — план</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;800&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: одна колонка документа ~760px; макеты экранов шире, в своих скролл-контейнерах */
+:root{
+  --bg:#f3f5f4; --paper:#ffffff; --fg:#1b2422; --muted:#5b6865; --line:#d7dedb;
+  --accent:#0f6b5c; --accent-soft:#e1efeb; --tape:#e8a33d; --tape-soft:#fbefd9;
+  --ok:#2f7d4f; --warn:#b26a00; --chrome:#e9edeb;
+  --f-display:"Manrope",system-ui,sans-serif; --f-body:"Onest",system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121816; --paper:#1a2220; --fg:#e4ebe8; --muted:#97a6a2; --line:#2d3a37;
+  --accent:#5cc2ad; --accent-soft:#1d3530; --tape:#f0b55a; --tape-soft:#3a2d17;
+  --ok:#6fcf97; --warn:#f0b55a; --chrome:#222c29; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121816; --paper:#1a2220; --fg:#e4ebe8; --muted:#97a6a2; --line:#2d3a37;
+  --accent:#5cc2ad; --accent-soft:#1d3530; --tape:#f0b55a; --tape-soft:#3a2d17;
+  --ok:#6fcf97; --warn:#f0b55a; --chrome:#222c29; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 64px}
+.wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,5vw,40px);font-weight:800}
+h2{font-size:24px;font-weight:800}
+h3{font-size:17px;font-weight:600}
+p{margin:0;max-width:65ch}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+section{display:flex;flex-direction:column;gap:18px}
+.lead{font-size:18px}
+.tag{display:inline-block;font:600 11px/1 var(--f-mono);padding:4px 7px;border-radius:4px;background:var(--tape-soft);color:var(--warn);letter-spacing:.03em}
+ul.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 12px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+td.c,th.c{text-align:center}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.yes{color:var(--ok);font-weight:600}.no{color:var(--muted)}
+
+/* Процесс */
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.step{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.step b{font:600 12px var(--f-mono);color:var(--accent)}
+.step strong{font-family:var(--f-display);font-size:15px}
+.step span{font-size:13px;color:var(--muted);line-height:1.45}
+.step .who{font:600 11px var(--f-mono);color:var(--warn);text-transform:uppercase;letter-spacing:.04em}
+@media (max-width:720px){.flow{grid-template-columns:1fr}}
+
+/* Макеты экранов */
+.screen{background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:640px}
+.bar{display:flex;align-items:center;gap:16px;padding:10px 14px;background:var(--chrome);border-bottom:1px solid var(--line);font-size:13px}
+.bar .logo{font:800 14px var(--f-display)}
+.bar nav{display:flex;gap:14px;color:var(--muted)}
+.bar nav .on{color:var(--fg);font-weight:600;border-bottom:2px solid var(--accent)}
+.bar .role{margin-left:auto;font:600 11px var(--f-mono);padding:4px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
+.body{padding:16px;display:flex;flex-direction:column;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.kpi{border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.kpi small{display:block;font-size:11px;color:var(--muted)}
+.kpi div{font:600 18px var(--f-mono);font-variant-numeric:tabular-nums}
+.split{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:6px}
+.split i{display:block}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.field{border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13px;min-width:130px;background:var(--bg)}
+.field small{display:block;font-size:10px;color:var(--muted)}
+.btn{font:600 13px var(--f-body);padding:8px 14px;border-radius:6px;background:var(--accent);color:var(--paper);border:0}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:12px}
+.seg span{padding:6px 10px}.seg .on{background:var(--accent);color:var(--paper)}
+.pill{font:600 11px var(--f-mono);padding:3px 7px;border-radius:10px;white-space:nowrap}
+.p-ok{background:var(--accent-soft);color:var(--ok)}.p-wait{background:var(--tape-soft);color:var(--warn)}
+.screen table{font-size:13px}.screen td,.screen th{padding:7px 8px}
+.hidden-price{font:12px var(--f-mono);color:var(--muted)}
+
+/* Телефон завсклада */
+.phones{display:flex;gap:20px;flex-wrap:wrap}
+.phone{width:280px;max-width:100%;border:1px solid var(--line);border-radius:22px;background:var(--paper);padding:14px;display:flex;flex-direction:column;gap:10px}
+.phone h4{margin:0;font:800 15px var(--f-display)}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding-bottom:8px;font-size:13px}
+.item .q{font:600 13px var(--f-mono);white-space:nowrap}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:6px;font:600 13px var(--f-mono)}
+.stepper span{padding:4px 9px}.stepper span+span{border-left:1px solid var(--line)}
+
+/* Накладная */
+.waybill{background:#fff;color:#1b1b1b;border:1px solid var(--line);border-radius:4px;padding:22px;min-width:560px;font-size:13px;display:flex;flex-direction:column;gap:12px}
+.waybill h4{margin:0;font:800 16px var(--f-display);text-align:center}
+.waybill table th{color:#555}.waybill td,.waybill th{border-bottom:1px solid #ccc}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:10px}
+.sign div{border-top:1px solid #333;padding-top:4px;font-size:11px;color:#555}
+
+.note{background:var(--tape-soft);border-left:3px solid var(--tape);padding:12px 14px;border-radius:0 6px 6px 0;font-size:14px}
+.phase{display:grid;grid-template-columns:150px 1fr;gap:6px 18px;padding:14px 0;border-bottom:1px solid var(--line)}
+.phase .t{font:600 13px var(--f-mono);color:var(--accent)}
+@media (max-width:560px){.phase{grid-template-columns:1fr}}
+ol.q{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+ol.q li{padding-left:4px}
+ol.q b{font-weight:600}
+.caption{font-size:13px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:14px">
+  <div class="eyebrow">CRM · учёт закупок и склада · план от 05.11.2026</div>
+  <h1>Программа учёта закупок, склада и выдачи подрядчикам</h1>
+  <p class="lead">Цель: руководитель в любой момент видит, что и по какой цене закуплено, что принял склад, что и кому выдано и сколько осталось. Завсклад работает с теми же данными, но без цен.</p>
+  <p class="caption">Составлено по голосовому сообщению клиента (2 мин 10 с, узбекский с русскими словами) и акту сверки поставщика за сентябрь–октябрь 2026. Голосовое распознано автоматически; места, где смысл не уверен, помечены <span class="tag">уточнить</span>. Названия товаров в макетах взяты из акта сверки, количества и суммы — примеры.</p>
+</header>
+
+<section>
+  <div class="eyebrow">Что сказал клиент</div>
+  <h2>Требования из голосового</h2>
+  <ul class="clean">
+    <li>Закупочные цены — основа. Каждую закупку разделять по способу оплаты: <b>перечисление</b> или <b>наличные</b>, чтобы руководитель видел их раздельно. Прозвучало «кредит / насия» — акт сверки это подтвердил: закупают в долг (см. ниже).</li>
+    <li>Снабженец вводит свои закупки с ценами и видит свои отчёты с ценами.</li>
+    <li>Руководитель видит всё. Завсклад видит только наименование и количество в штуках.</li>
+    <li>Учёт по дням: «сегодня отправил на склад 10 видов товара».</li>
+    <li>Завсклад принимает груз и частями выдаёт подрядчикам. Каждая выдача фиксируется: печатная накладная с подписью получателя.</li>
+    <li>Программа сама считает остатки. Руководитель видит цепочку: отправлено → через 2–3 дня выдано → осталось. С ценами.</li>
+    <li>Клиент завтра обсуждает с руководителем, дополнения пришлёт.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Что показал акт сверки</div>
+  <h2>Как учёт выглядит сейчас</h2>
+  <p>Клиент прислал акт сверки взаиморасчётов с поставщиком стройматериалов из 1С поставщика, за два месяца. Суммы здесь не приводятся: это данные клиента.</p>
+  <div class="scroll"><table>
+    <tbody>
+      <tr><td>Долг на начало периода</td><td class="num">есть, в сумах и $</td></tr>
+      <tr><td>Отгружено за период</td><td class="num">91 накладная</td></tr>
+      <tr><td>Уменьшают долг</td><td class="num">оплаты, скидка, возвраты</td></tr>
+                        <tr><td><b>Долг на конец периода</b></td><td class="num"><b>вырос</b></td></tr>
+      <tr><td>Накладных</td><td class="num">91 за 42 дня</td></tr>
+      <tr><td>Строк / разных товаров</td><td class="num">377 / 210</td></tr>
+      <tr><td>Доставка («MOSHINA»)</td><td class="num">39 раз, 6 910 000 сум</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Что это добавляет в программу:</b></p>
+  <ul class="clean">
+    <li><b>Долг по поставщику.</b> Закупка увеличивает долг, оплата его уменьшает. Оплата бывает наличными, перечислением или в долларах. Программа сама формирует акт сверки, чтобы сверяться с поставщиком.</li>
+    <li><b>Две валюты</b> — сум и доллар.</li>
+    <li><b>Возврат поставщику</b> — отдельный документ: уменьшает остаток на складе и долг.</li>
+    <li><b>Скидка поставщика</b> уменьшает долг без движения денег.</li>
+    <li><b>Доставка — услуга.</b> Входит в стоимость закупки, но на склад не приходуется.</li>
+    <li><b>Импорт.</b> 210 товаров и закупки за прошлые месяцы можно загрузить из такого XLS скриптом, а не набирать вручную.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Кто что видит</div>
+  <h2>Роли и права</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Действие</th><th class="c">Руководитель</th><th class="c">Снабженец</th><th class="c">Завсклад</th></tr></thead>
+    <tbody>
+      <tr><td>Видит цены и суммы</td><td class="c yes">все</td><td class="c yes">свои закупки</td><td class="c no">нет</td></tr>
+      <tr><td>Вводит закупку и отправку на склад</td><td class="c yes">да</td><td class="c yes">да</td><td class="c no">нет</td></tr>
+      <tr><td>Подтверждает приёмку (факт. кол-во)</td><td class="c no">нет</td><td class="c no">нет</td><td class="c yes">да</td></tr>
+      <tr><td>Выдаёт подрядчику, печатает накладную</td><td class="c no">нет</td><td class="c no">нет</td><td class="c yes">да</td></tr>
+      <tr><td>Остатки</td><td class="c yes">шт + сумма</td><td class="c yes">шт + сумма</td><td class="c yes">только шт</td></tr>
+      <tr><td>Нал / безнал, отчёты, история правок</td><td class="c yes">да</td><td class="c no">нет</td><td class="c no">нет</td></tr>
+      <tr><td>Долги поставщикам, оплаты, акт сверки</td><td class="c yes">да</td><td class="c yes">вводит оплаты?</td><td class="c no">нет</td></tr>
+      <tr><td>Справочники: товары, подрядчики, пользователи</td><td class="c yes">да</td><td class="c yes">товары</td><td class="c no">нет</td></tr>
+    </tbody>
+  </table></div>
+  <p class="caption">Права снабженца на «видит отчёты» и «справочники» — моё предложение, подтвердить с руководителем.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Движение товара</div>
+  <h2>Процесс</h2>
+  <div class="flow">
+    <div class="step"><b>1</b><strong>Закупка</strong><span>Товар, кол-во, цена, поставщик, нал / перечисление.</span><span class="who">снабженец</span></div>
+    <div class="step"><b>2</b><strong>Отправка</strong><span>Закупка уходит на склад. Статус «в пути».</span><span class="who">снабженец</span></div>
+    <div class="step"><b>3</b><strong>Приёмка</strong><span>Завсклад отмечает, сколько пришло по факту. Расхождение видно сразу.</span><span class="who">завсклад</span></div>
+    <div class="step"><b>4</b><strong>Выдача</strong><span>Частями подрядчику. Накладная → подпись → фото накладной в систему.</span><span class="who">завсклад</span></div>
+    <div class="step"><b>5</b><strong>Остаток</strong><span>Принято минус выдано. Считается само, в штуках и в деньгах.</span><span class="who">программа</span></div>
+  </div>
+  <p class="caption">Параллельно идут деньги: закупка в долг → долг поставщику растёт → оплата, возврат или скидка → долг уменьшается. Это видит только руководитель.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Данные</div>
+  <h2>Что хранит программа</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Таблица</th><th>Поля</th></tr></thead>
+    <tbody>
+      <tr><td><b>Товары</b></td><td>наименование, единица (шт, м, кг, мешок), категория</td></tr>
+      <tr><td><b>Поставщики</b></td><td>название, телефон, начальное сальдо (сум и $)</td></tr>
+      <tr><td><b>Закупки</b></td><td>дата, № накладной поставщика, снабженец, поставщик, валюта, способ оплаты (нал / перечисление / в долг), статус (в пути / принято / расхождение), позиции: товар или услуга (доставка), кол-во, цена</td></tr>
+      <tr><td><b>Оплаты поставщику</b></td><td>дата, поставщик, сумма, валюта, способ (нал / перечисление / $), тип (оплата / скидка), комментарий</td></tr>
+      <tr><td><b>Возвраты поставщику</b></td><td>дата, поставщик, позиции: товар, кол-во, цена — уменьшают и склад, и долг</td></tr>
+      <tr><td><b>Приёмки</b></td><td>закупка, дата, кто принял, факт. кол-во по каждой позиции, комментарий</td></tr>
+      <tr><td><b>Подрядчики</b></td><td>название / ФИО, объект, телефон</td></tr>
+      <tr><td><b>Выдачи (накладные)</b></td><td>№, дата, подрядчик, получатель (ФИО), позиции: товар, кол-во; фото подписанной накладной</td></tr>
+      <tr><td><b>Журнал</b></td><td>кто, когда, что изменил — чтобы правки задним числом были видны руководителю</td></tr>
+    </tbody>
+  </table></div>
+  <p>Остатки и долги отдельно не хранятся, а считаются: <span style="font-family:var(--f-mono)">остаток = принято − выдано − возвращено</span>, <span style="font-family:var(--f-mono)">долг = сальдо + закупки − оплаты − скидки − возвраты</span>. Так их нельзя «подправить» руками.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Как будет выглядеть</div>
+  <h2>Экраны</h2>
+  <p>Веб-приложение в браузере: на компьютере у руководителя и снабженца, на телефоне у завсклада. Сверху меню разделов, справа роль пользователя. Светлая и тёмная тема.</p>
+
+  <h3>1. Главная руководителя</h3>
+  <p class="caption">Сводка за выбранный период, разбивка нал / безнал, движение по дням и последние накладные.</p>
+  <div class="scroll"><div class="screen">
+    <div class="bar"><span class="logo">Склад</span><nav><span class="on">Главная</span><span>Закупки</span><span>Склад</span><span>Выдачи</span><span>Отчёты</span></nav><span class="role">Руководитель</span></div>
+    <div class="body">
+      <div class="row"><div class="seg"><span>Сегодня</span><span class="on">Неделя</span><span>Месяц</span><span>Период…</span></div></div>
+      <div class="kpis">
+        <div class="kpi"><small>Закуплено</small><div>184 500 000</div>
+          <div class="split"><i style="width:62%;background:var(--accent)"></i><i style="width:38%;background:var(--tape)"></i></div>
+          <small>перечисл. 62% · нал 38%</small></div>
+        <div class="kpi"><small>Принято складом</small><div>176 200 000</div><small>2 закупки в пути</small></div>
+        <div class="kpi"><small>Выдано подрядчикам</small><div>98 400 000</div><small>14 накладных</small></div>
+        <div class="kpi"><small>Остаток на складе</small><div>77 800 000</div><small>46 позиций</small></div>
+      </div>
+      <table>
+        <thead><tr><th>Дата</th><th>Событие</th><th>Кто</th><th class="num">Позиций</th><th class="num">Сумма, сум</th><th>Статус</th></tr></thead>
+        <tbody>
+          <tr><td>05.11</td><td>Закупка №41 → склад</td><td>Снабженец</td><td class="num">10</td><td class="num">23 600 000</td><td><span class="pill p-wait">в пути</span></td></tr>
+          <tr><td>05.11</td><td>Накладная №118 → Подрядчик А</td><td>Завсклад</td><td class="num">4</td><td class="num">6 150 000</td><td><span class="pill p-ok">подписана</span></td></tr>
+          <tr><td>04.11</td><td>Приёмка закупки №40</td><td>Завсклад</td><td class="num">7</td><td class="num">18 900 000</td><td><span class="pill p-wait">расхождение 1</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div></div>
+
+  <h3>2. Новая закупка (снабженец)</h3>
+  <p class="caption">Одна форма: шапка закупки и строки товаров. Способ оплаты — обязательный переключатель. Сумма считается сама.</p>
+  <div class="scroll"><div class="screen">
+    <div class="bar"><span class="logo">Склад</span><nav><span>Главная</span><span class="on">Закупки</span><span>Склад</span></nav><span class="role">Снабженец</span></div>
+    <div class="body">
+      <div class="row">
+        <div class="field"><small>Дата</small>05.11.2026</div>
+        <div class="field" style="min-width:200px"><small>Поставщик</small>Поставщик стройматериалов</div>
+        <div class="field"><small>№ накладной поставщика</small>87 615</div>
+        <div><small class="muted" style="font-size:10px;display:block">Валюта</small><div class="seg"><span class="on">сум</span><span>$</span></div></div>
+        <div><small class="muted" style="font-size:10px;display:block">Оплата</small><div class="seg"><span>Перечисление</span><span>Наличные</span><span class="on">В долг</span></div></div>
+      </div>
+      <table>
+        <thead><tr><th>Товар</th><th>Ед.</th><th class="num">Кол-во</th><th class="num">Цена</th><th class="num">Сумма</th></tr></thead>
+        <tbody>
+          <tr><td>KNAUF GIPSOKARTON STENAVOY</td><td>лист</td><td class="num">100</td><td class="num">60 500</td><td class="num">6 050 000</td></tr>
+          <tr><td>SOMAFIX KALBASA QORA 752</td><td>шт</td><td class="num">10</td><td class="num">65 000</td><td class="num">650 000</td></tr>
+          <tr><td>Доставка <span class="pill p-wait">услуга</span></td><td>рейс</td><td class="num">1</td><td class="num">120 000</td><td class="num">120 000</td></tr>
+          <tr><td class="muted">+ добавить товар (поиск по справочнику)</td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+      <div class="row" style="justify-content:space-between"><span class="num" style="font-weight:600">Итого: 6 820 000 сум · долг поставщику станет больше на эту сумму</span><div class="row"><span class="btn ghost">Сохранить черновик</span><span class="btn">Отправить на склад</span></div></div>
+    </div>
+  </div></div>
+
+  <h3>3. Завсклад на телефоне: приёмка и выдача</h3>
+  <p class="caption">Только наименования и штуки. Цен нет нигде — их не отдаёт даже сервер, а не просто скрывает экран.</p>
+  <div class="phones">
+    <div class="phone">
+      <h4>Приёмка · закупка №41</h4>
+      <span class="caption">Ожидается 10 позиций</span>
+      <div class="item"><span>KNAUF GIPSOKARTON STENAVOY, лист</span><span class="q">100 / <b>100</b></span></div>
+      <div class="item"><span>DEMIR PROFIL 27*28, м</span><span class="q">4320 / <b style="color:var(--warn)">4300</b></span></div>
+      <div class="item"><span>SOMAFIX KALBASA QORA 752, шт</span><span class="q">10 / <b>10</b></span></div>
+      <span class="caption">Ожидалось / пришло. Расхождение уходит руководителю.</span>
+      <span class="btn" style="text-align:center">Принять</span>
+    </div>
+    <div class="phone">
+      <h4>Выдача подрядчику</h4>
+      <div class="field"><small>Подрядчик</small>Подрядчик А</div>
+      <div class="field"><small>Получатель (ФИО)</small>—</div>
+      <div class="item"><span>KNAUF GIPSOKARTON STENAVOY<br><span class="caption">на складе 100</span></span><span class="stepper"><span>−</span><span>40</span><span>+</span></span></div>
+      <div class="item"><span>DEMIR PROFIL 27*28<br><span class="caption">на складе 4300</span></span><span class="stepper"><span>−</span><span>1200</span><span>+</span></span></div>
+      <span class="btn" style="text-align:center">Оформить и распечатать</span>
+      <span class="btn ghost" style="text-align:center">Прикрепить фото подписи</span>
+    </div>
+  </div>
+
+  <h3>4. Накладная на выдачу (печать / PDF)</h3>
+  <p class="caption">Без цен, две подписи. После подписи завсклад фотографирует лист, фото привязывается к накладной.</p>
+  <div class="scroll"><div class="waybill">
+    <h4>Накладная на выдачу № 118 от 05.11.2026</h4>
+    <div>Склад: <b>[объект]</b> &nbsp;·&nbsp; Получатель: <b>Подрядчик А</b></div>
+    <table>
+      <thead><tr><th>№</th><th>Наименование</th><th>Ед.</th><th class="num">Кол-во</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>KNAUF GIPSOKARTON STENAVOY</td><td>лист</td><td class="num">40</td></tr>
+        <tr><td>2</td><td>DEMIR PROFIL 27*28</td><td>м</td><td class="num">1200</td></tr>
+      </tbody>
+    </table>
+    <div class="sign"><div>Отпустил (завсклад): ФИО, подпись</div><div>Получил: ФИО, подпись</div></div>
+  </div></div>
+
+  <h3>5. Остатки и движение товара</h3>
+  <p class="caption">Руководитель видит цепочку по каждому товару. Клик по строке — история: какие закупки, какие накладные.</p>
+  <div class="scroll"><div class="screen">
+    <div class="bar"><span class="logo">Склад</span><nav><span>Главная</span><span class="on">Склад</span><span>Отчёты</span></nav><span class="role">Руководитель</span></div>
+    <div class="body">
+      <table>
+        <thead><tr><th>Товар</th><th class="num">Закуплено</th><th class="num">Принято</th><th class="num">Выдано</th><th class="num">Остаток</th><th class="num">Остаток, сум</th></tr></thead>
+        <tbody>
+          <tr><td>KNAUF GIPSOKARTON STENAVOY, лист</td><td class="num">100</td><td class="num">100</td><td class="num">40</td><td class="num"><b>60</b></td><td class="num">3 630 000</td></tr>
+          <tr><td>DEMIR PROFIL 27*28, м</td><td class="num">4 320</td><td class="num" style="color:var(--warn)">4 300</td><td class="num">1 200</td><td class="num"><b>3 100</b></td><td class="num">13 330 000</td></tr>
+          <tr><td>SOMAFIX KALBASA QORA 752, шт</td><td class="num">200</td><td class="num">200</td><td class="num">150</td><td class="num"><b>50</b></td><td class="num">3 250 000</td></tr>
+        </tbody>
+      </table>
+      <p class="hidden-price">Завсклад видит эту же таблицу без последней колонки и без «Закуплено».</p>
+    </div>
+  </div></div>
+
+  <h3>6. Поставщик: долг и акт сверки (руководитель)</h3>
+  <p class="caption">Карточка поставщика: текущий долг в сумах и долларах и все операции за период. Цифры — примеры. Кнопка выгружает акт для сверки с поставщиком.</p>
+  <div class="scroll"><div class="screen">
+    <div class="bar"><span class="logo">Склад</span><nav><span>Главная</span><span>Закупки</span><span class="on">Поставщики</span><span>Отчёты</span></nav><span class="role">Руководитель</span></div>
+    <div class="body">
+      <div class="row" style="justify-content:space-between">
+        <div><b style="font-family:var(--f-display)">Поставщик стройматериалов</b><br><span class="caption">01.09.2026 – 31.10.2026</span></div>
+        <div class="row"><span class="btn ghost">+ Оплата</span><span class="btn ghost">+ Возврат</span><span class="btn">Акт сверки в Excel</span></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><small>Долг на начало</small><div>150 000 000</div><small>+ $50</small></div>
+        <div class="kpi"><small>Закуплено</small><div>420 000 000</div><small>68 накладных</small></div>
+        <div class="kpi"><small>Оплачено, скидки, возвраты</small><div>390 000 000</div><small>оплата · скидка · 4 возврата</small></div>
+        <div class="kpi"><small>Долг сейчас</small><div style="color:var(--warn)">180 000 000</div><small>+ $50</small></div>
+      </div>
+      <table>
+        <thead><tr><th>Дата</th><th>Операция</th><th class="num">Долг +</th><th class="num">Долг −</th><th>Способ</th></tr></thead>
+        <tbody>
+          <tr><td>23.09</td><td>Оплата</td><td class="num"></td><td class="num">350 000 000</td><td>перечисление</td></tr>
+          <tr><td>13.10</td><td>Возврат товара</td><td class="num"></td><td class="num">4 000 000</td><td>—</td></tr>
+          <tr><td>27.10</td><td>Скидка</td><td class="num"></td><td class="num">10 000 000</td><td>—</td></tr>
+          <tr><td>29.10</td><td>Закупка, накл. 87 700</td><td class="num">8 000 000</td><td class="num"></td><td><span class="pill p-wait">в долг</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <div class="eyebrow">Отчёты</div>
+  <h2>Что можно выгрузить</h2>
+  <ul class="clean">
+    <li><b>За день</b> — что отправлено, принято, выдано сегодня (то, что клиент назвал «кунлик»).</li>
+    <li><b>Нал / перечисление</b> — суммы закупок по способу оплаты за период, по снабженцам.</li>
+    <li><b>По подрядчику</b> — что и сколько получил, все накладные с фото подписей.</li>
+    <li><b>По товару</b> — полная история движения.</li>
+    <li><b>Расхождения</b> — где принято меньше, чем отправлено.</li>
+    <li><b>Акт сверки с поставщиком</b> — сальдо, закупки, оплаты, возвраты, скидки, в сумах и $; сравнивается с актом из 1С поставщика.</li>
+    <li><b>Долги</b> — сколько и кому должны на сегодня.</li>
+    <li>Экспорт в Excel и PDF.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Как делать</div>
+  <h2>Стек и этапы</h2>
+  <p><b>Laravel + Filament + MySQL.</b> Filament даёт готовые таблицы, формы, фильтры и роли, поэтому основное время уходит на логику учёта, а не на интерфейс. Адаптивная вёрстка — завсклад работает с телефона без отдельного приложения. Накладные — PDF на сервере. Хостинг — VPS (например Timeweb) с ежедневным бэкапом базы.</p>
+  <div>
+    <div class="phase"><span class="t">Этап 0</span><div><b>Согласовать ТЗ.</b> Ответы на вопросы ниже, роли, список товаров и подрядчиков.</div></div>
+    <div class="phase"><span class="t">Этап 1</span><div><b>Кликабельный макет</b> 5 экранов в HTML на GitHub Pages → согласование с руководителем.</div></div>
+    <div class="phase"><span class="t">Этап 2 · MVP</span><div>Справочники, закупки (нал / перечисление / в долг, сум и $), приёмка, выдача с накладной, остатки, долг по поставщику и оплаты, роли и скрытие цен на уровне сервера.</div></div>
+    <div class="phase"><span class="t">Этап 3</span><div>Возвраты поставщику, акт сверки, отчёты, экспорт Excel/PDF, фото накладных, журнал правок, уведомления в Telegram (по желанию).</div></div>
+    <div class="phase"><span class="t">Этап 4</span><div>Импорт из актов сверки: справочник товаров (210 наименований за 2 месяца), закупки и сальдо на дату старта. Неделя параллельной работы с текущим учётом, обучение завсклада, запуск.</div></div>
+  </div>
+  <p class="caption">Сроки и стоимость оценю после ответов на вопросы — от них зависит объём.</p>
+</section>
+
+<section>
+  <div class="eyebrow">К разговору с руководителем</div>
+  <h2>Вопросы клиенту</h2>
+  <div class="note">Клиент завтра говорит с руководителем — эти вопросы стоит передать заранее.</div>
+  <ol class="q">
+    <li><b>Сфера.</b> Это стройка (объекты, подрядчики)? Сколько складов или объектов — один или несколько?</li>
+    <li><b>Поставщики.</b> Акт сверки пришёл от одного поставщика. Сколько их всего? Пришлите акты от остальных — по ним сделаем импорт.</li>
+    <li><b>Доллары.</b> Что покупают в $? Пересчитывать ли $ в сумы по курсу в отчётах руководителя, или вести раздельно?</li>
+    <li><b>Оплаты.</b> Кто вносит оплаты поставщику — снабженец или руководитель?</li>
+    <li><b>Пользователи.</b> Сколько снабженцев и завскладов? Видит ли снабженец закупки других снабженцев?</li>
+    <li><b>Единицы.</b> Только штуки или ещё метры, кг, мешки, кубы?</li>
+    <li><b>Цена остатка.</b> Один товар куплен по разным ценам — остаток считать по средней цене или по каждой партии?</li>
+    <li><b>Возвраты.</b> Подрядчик может вернуть остаток материала на склад?</li>
+    <li><b>Подпись.</b> Достаточно бумажной накладной + фото, или нужна подпись пальцем на телефоне?</li>
+    <li><b>Язык интерфейса.</b> Русский, узбекский (латиница) или оба?</li>
+    <li><b>Дата старта.</b> С какой даты начинаем учёт в программе? На эту дату нужны долги по поставщикам и фактические остатки на складе (инвентаризация).</li>
+    <li><b>Готовое решение.</b> Рассматривали ли готовый сервис (например МойСклад) вместо своей программы?</li>
+  </ol>
+</section>
+
+</div>
