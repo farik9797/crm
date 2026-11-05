@@ -187,8 +187,10 @@ function load(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=load();
 let role=null,tab='home',view=null,draft=null,msg='',loginPick=null,loginErr='';
-try{const r=localStorage.getItem(KEY+'-role');if(r&&ROLES[r])role=r}catch(e){}
-{const h=location.hash.slice(1);if(USERS[h])loginPick=h}
+const SESS=KEY+'-session';
+try{const r=localStorage.getItem(SESS);if(r&&ROLES[r])role=r}catch(e){}
+// Ссылка demo.html#zav и т.п. открывает вход под этой ролью, если сейчас вошли под другой
+{const h=location.hash.slice(1);if(USERS[h]){loginPick=h;if(role&&role!==h){role=null;try{localStorage.removeItem(SESS)}catch(e){}}}}
 const firstTab=r=>Object.keys(TABS).find(k=>TABS[k].r.includes(r));
 
 const $=s=>document.querySelector(s);
@@ -553,7 +555,7 @@ function doLogin(){
   const l=$('#lg-login').value.trim().toLowerCase(),p=$('#lg-pass').value;
   const k=Object.keys(USERS).find(k=>USERS[k].login===l);
   if(!k||USERS[k].pass!==p){loginErr='Неверный логин или пароль. Доступы для теста — в таблице ниже.';loginPick=k||loginPick;return render()}
-  role=k;loginErr='';try{localStorage.setItem(KEY+'-role',role)}catch(e){}
+  role=k;loginErr='';try{localStorage.setItem(SESS,role)}catch(e){}
   go(firstTab(role));toast('Вы вошли как '+ROLES[role].toLowerCase());
 }
 
@@ -641,7 +643,7 @@ document.addEventListener('click',e=>{
   if(ds.seg){draft[ds.seg]=ds.v;return render()}
   if(ds.delline!==undefined){draft.lines.splice(+ds.delline,1);return render()}
   const a=ds.act;
-  if(a==='logout'){loginPick=role;role=null;try{localStorage.removeItem(KEY+'-role')}catch(e){}view=null;draft=null;return render()}
+  if(a==='logout'){loginPick=role;role=null;try{localStorage.removeItem(SESS)}catch(e){}view=null;draft=null;return render()}
   if(a==='reset'){S=seed();view=null;draft=null;toast('Демо сброшено к исходным данным');return render()}
   if(a==='newPurchase')return go('purchases','new');
   if(a==='newIssue')return go('issues','new');
