@@ -86,6 +86,16 @@ label.file input{position:absolute;opacity:0;width:1px;height:1px}
 .chk input{width:18px;height:18px;accent-color:var(--accent)}
 .note{font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
 .del{color:var(--bad)}
+.user{margin-left:auto;display:flex;gap:6px;align-items:center;font-size:14px}
+.login{max-width:760px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.who{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.whocard{text-align:left;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:10px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:4px;font:inherit}
+.whocard b{font-family:var(--f-display);font-size:16px}
+.whocard span{font-size:13px;color:var(--muted)}
+.whocard:hover{border-color:var(--accent)}
+.whocard.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+#login .f{max-width:320px}
+@media (max-width:640px){.who{grid-template-columns:1fr}}
 .copybox{width:100%;min-height:120px;font:12px var(--f-mono)}
 @media (max-width:640px){.roles{margin-left:0;width:100%}.roles button{flex:1}}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{opacity:0;transform:translate(-50%,8px)}}}
@@ -94,7 +104,7 @@ label.file input{position:absolute;opacity:0;width:1px;height:1px}
 <header class="top">
   <div class="top-in">
     <span class="logo">Склад<small>ДЕМО</small></span>
-    <div class="roles" id="roles" role="tablist" aria-label="Роль пользователя"></div>
+    <div class="user" id="user"></div>
   </div>
   <nav class="tabs" id="tabs" aria-label="Разделы"></nav>
 </header>
@@ -111,8 +121,13 @@ const TABS={
   issues:{t:'Выдача',r:['boss','zav']},
   stock:{t:'Остатки',r:['boss','snab','zav']},
   suppliers:{t:'Поставщики',r:['boss']},
-  reports:{t:'Отчёты',r:['boss']},
-  scen:{t:'Сценарии теста',r:['boss','snab','zav']}
+  reports:{t:'Отчёты',r:['boss']}
+};
+// Демо-доступы: проверяются в браузере, защиты не дают
+const USERS={
+  boss:{login:'rahbar',pass:'1111',d:'Видит всё: цены, долги поставщикам, отчёты'},
+  snab:{login:'snab',pass:'2222',d:'Вводит закупки и видит их цены'},
+  zav:{login:'sklad',pass:'3333',d:'Приёмка и выдача подрядчикам, без цен'}
 };
 const PAY={debt:'В долг',cash:'Наличные',perech:'Перечисление'};
 const KEY='sklad-demo-v1';
@@ -165,8 +180,10 @@ function seed(){
 function load(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}catch(e){}return seed()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=load();
-let role='boss',tab='home',view=null,draft=null,msg='';
+let role=null,tab='home',view=null,draft=null,msg='',loginPick=null,loginErr='';
 try{const r=localStorage.getItem(KEY+'-role');if(r&&ROLES[r])role=r}catch(e){}
+{const h=location.hash.slice(1);if(USERS[h])loginPick=h}
+const firstTab=r=>Object.keys(TABS).find(k=>TABS[k].r.includes(r));
 
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -213,12 +230,14 @@ function debt(sid){
 
 /* ---------- каркас ---------- */
 function renderChrome(){
-  $('#roles').innerHTML=Object.entries(ROLES).map(([k,v])=>`<button role="tab" aria-selected="${k===role}" class="${k===role?'on':''}" data-role="${k}">${v}</button>`).join('');
+  $('#user').innerHTML=role?`<span class="muted">${ROLES[role]} · ${USERS[role].login}</span><button class="btn link sm" data-act="logout">Выйти</button>`:'';
+  $('#tabs').hidden=!role;
+  if(!role)return;
   $('#tabs').innerHTML=Object.entries(TABS).filter(([k,v])=>v.r.includes(role)).map(([k,v])=>`<button class="${k===tab?'on':''}" data-tab="${k}">${v.t}</button>`).join('');
 }
 function render(){
   renderChrome();
-  const f={home,purchases,receive,issues,stock,suppliers,reports,scen}[tab];
+  const f=role?{home,purchases,receive,issues,stock,suppliers,reports}[tab]:login;
   $('#app').innerHTML=`<div class="banner"><span>Демо для теста. Все данные — примеры. Всё, что вы введёте, хранится только в этом браузере.</span><button class="btn link sm" data-act="reset">Сбросить демо</button></div>`+f();
   save();
 }
@@ -506,6 +525,32 @@ function scen(){
   <div class="scen">${SC.map(s=>`<div class="card"><label class="chk" for="sc-${s.id}"><input type="checkbox" id="sc-${s.id}" data-check="${s.id}" ${S.checks[s.id]?'checked':''}>${s.t}</label><ol>${s.steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`).join('')}</div>`;
 }
 
+/* ---------- Вход ---------- */
+function login(){
+  const u=loginPick&&USERS[loginPick];
+  return `<div class="login">
+  <div><h1>Вход в программу</h1><p class="muted">Выберите, кем входите. У каждой роли свой логин и свой набор разделов.</p></div>
+  <div class="who">${Object.entries(USERS).map(([k,x])=>`<button type="button" class="whocard ${loginPick===k?'on':''}" data-pick="${k}" aria-pressed="${loginPick===k}"><b>${ROLES[k]}</b><span>${x.d}</span></button>`).join('')}</div>
+  <form class="card" id="login" novalidate>
+    <div class="f"><label for="lg-login">Логин</label><input id="lg-login" autocomplete="username" value="${u?u.login:''}"></div>
+    <div class="f"><label for="lg-pass">Пароль</label><input id="lg-pass" type="password" autocomplete="current-password"></div>
+    ${loginErr?`<p class="err" role="alert">${esc(loginErr)}</p>`:''}
+    <div><button class="btn" type="submit">Войти</button></div>
+  </form>
+  <div class="card"><h3>Доступы для теста</h3><div class="scroll"><table><thead><tr><th>Роль</th><th>Логин</th><th>Пароль</th><th>Ссылка на вход</th></tr></thead><tbody>
+  ${Object.entries(USERS).map(([k,x])=>`<tr><td>${ROLES[k]}</td><td class="num" style="text-align:left">${x.login}</td><td class="num" style="text-align:left">${x.pass}</td><td class="small">demo.html#${k}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="note">Ссылка с #boss, #snab или #zav открывает вход с уже выбранной ролью — удобно отправить каждому тестеру свою. Это демо: пароли проверяются в браузере и защиты не дают. В рабочей программе у каждого сотрудника будет личная учётная запись на сервере.</p></div>
+  </div>`;
+}
+function doLogin(){
+  const l=$('#lg-login').value.trim().toLowerCase(),p=$('#lg-pass').value;
+  const k=Object.keys(USERS).find(k=>USERS[k].login===l);
+  if(!k||USERS[k].pass!==p){loginErr='Неверный логин или пароль. Доступы для теста — в таблице ниже.';loginPick=k||loginPick;return render()}
+  role=k;loginErr='';try{localStorage.setItem(KEY+'-role',role)}catch(e){}
+  go(firstTab(role));toast('Вы вошли как '+ROLES[role].toLowerCase());
+}
+
 /* ---------- экспорт в Excel ---------- */
 // В окне артефакта браузер блокирует скачивание файлов, поэтому там вместо файла копируем таблицу в буфер
 const canDownload=location.protocol==='file:'||/(^|\.)github\.io$/.test(location.hostname)||location.hostname==='localhost';
@@ -574,12 +619,12 @@ function copyTsv(kind){
 
 /* ---------- события ---------- */
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-role],[data-tab],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy]');
+  const b=e.target.closest('[data-pick],[data-tab],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy]');
   if(!b)return;const ds=b.dataset;
   if(ds.exp)return download(ds.exp);
   if(ds.copy)return copyTsv(ds.copy);
   copied=null;
-  if(ds.role){role=ds.role;try{localStorage.setItem(KEY+'-role',role)}catch(e){}if(!TABS[tab].r.includes(role))tab=Object.keys(TABS).find(k=>TABS[k].r.includes(role));view=null;draft=null;return render()}
+  if(ds.pick){loginPick=ds.pick;loginErr='';render();const p=$('#lg-pass');if(p)p.focus();return}
   if(ds.tab)return go(ds.tab);
   if(ds.back)return go(ds.back);
   if(ds.openZ)return go('purchases',ds.openZ);
@@ -590,6 +635,7 @@ document.addEventListener('click',e=>{
   if(ds.seg){draft[ds.seg]=ds.v;return render()}
   if(ds.delline!==undefined){draft.lines.splice(+ds.delline,1);return render()}
   const a=ds.act;
+  if(a==='logout'){loginPick=role;role=null;try{localStorage.removeItem(KEY+'-role')}catch(e){}view=null;draft=null;return render()}
   if(a==='reset'){S=seed();view=null;draft=null;toast('Демо сброшено к исходным данным');return render()}
   if(a==='newPurchase')return go('purchases','new');
   if(a==='newIssue')return go('issues','new');
@@ -619,6 +665,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('submit',e=>{
   e.preventDefault();const f=e.target;
+  if(f.id==='login')return doLogin();
   if(f.id==='pform')return submitPurchase();
   if(f.id==='rform')return submitReceive(f);
   if(f.id==='iform')return submitIssue();
@@ -639,7 +686,7 @@ document.addEventListener('submit',e=>{
     addLog('Возврат поставщику: '+prod(pid).name+', '+fmt(q)+' '+prod(pid).unit);toast('Возврат проведён');view={sid:f.dataset.sid};return render();
   }
 });
-if(!TABS[tab].r.includes(role))tab=Object.keys(TABS).find(k=>TABS[k].r.includes(role));
+if(role&&!TABS[tab].r.includes(role))tab=firstTab(role);
 render();
 })();
 </script>
