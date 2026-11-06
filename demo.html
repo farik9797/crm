@@ -42,10 +42,13 @@ body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
 .burger{display:none;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:7px;padding:6px;cursor:pointer;line-height:0}
 .burger svg{width:20px;height:20px}
 .who-now{font-size:13px;color:var(--muted)}
+.themebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:7px;padding:6px 10px;font:500 13px var(--f-body);cursor:pointer}
+.themebtn svg{width:16px;height:16px}
+.themebtn:hover{border-color:var(--accent)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:16;background:var(--bg)}
 /* Вид 1: тёмная панель с группами и подписями */
 .l1 .side{width:244px;background:var(--side);color:var(--side-fg);padding:18px 12px;gap:18px}
-.l1 .brand{padding:2px 12px;color:#fff}
+.l1 .side .brand{padding:2px 12px;color:#fff}
 .l1 .grp-t{color:var(--side-mut);padding:0 12px 4px}
 .l1 nav{display:flex;flex-direction:column;gap:18px}
 .l1 .ni:hover{background:var(--side-hover)}
@@ -55,7 +58,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .l1 .me span{display:block;color:var(--side-mut);font:12px var(--f-mono)}
 /* Вид 2: светлая узкая полоса, значок над подписью */
 .l2 .side{width:88px;background:var(--paper);border-right:1px solid var(--line);padding:14px 8px;gap:12px}
-.l2 .brand{justify-content:center;flex-direction:column;gap:3px;font-size:15px}
+.l2 .side .brand{justify-content:center;flex-direction:column;gap:3px;font-size:15px}
 .l2 .grp-t{display:none}
 .l2 nav{display:flex;flex-direction:column;gap:8px}
 .l2 .grp+.grp{border-top:1px solid var(--line);padding-top:8px}
@@ -139,7 +142,8 @@ label.file input{position:absolute;opacity:0;width:1px;height:1px}
   .l1.open .side{transform:none}
   .l1.open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:14;border:0;width:100%}
   .l2 .side{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;height:auto;flex-direction:row;overflow-x:auto;border-right:0;border-top:1px solid var(--line);padding:4px max(6px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
-  .l2 .brand{display:none}
+  .l2 .side .brand{display:none}
+  .themebtn span{display:none}
   .l2 nav{flex-direction:row;gap:0;flex:1;justify-content:space-around}
   .l2 .grp{flex-direction:row;flex:1;justify-content:space-around}
   .l2 .grp+.grp{border-top:0;padding-top:0}
@@ -244,6 +248,11 @@ try{const r=sessionStorage.getItem(SESS);if(r&&ROLES[r])role=r}catch(e){}
 // Ссылка demo.html#zav и т.п. открывает вход под этой ролью, если сейчас вошли под другой
 {const h=location.hash.slice(1);if(USERS[h]){loginPick=h;if(role&&role!==h){role=null;try{sessionStorage.removeItem(SESS)}catch(e){}}}}
 let navOpen=false;
+// Тема одна на браузер; пока не выбрана, следуем настройке устройства
+const THEME='sklad-demo-theme';
+try{const t=localStorage.getItem(THEME);if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}
+const curTheme=()=>document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+function themeBtn(){const dark=curTheme()==='dark',t=dark?'Светлая тема':'Тёмная тема';return `<button class="themebtn" data-setheme="${dark?'light':'dark'}" aria-label="${t}" title="${t}"><i data-lucide="${dark?'sun':'moon'}"></i><span>${dark?'Светлая':'Тёмная'}</span></button>`}
 const NAV=[['Учёт',['home','purchases','receive','issues','stock']],['Деньги',['suppliers','reports']],['Настройки',['dict']]];
 const ICON={home:'layout-dashboard',purchases:'shopping-cart',receive:'package-check',issues:'clipboard-list',stock:'boxes',suppliers:'wallet',reports:'chart-column',dict:'book-open'};
 const SHORT={suppliers:'Постав.',dict:'Справ.'};
@@ -304,14 +313,14 @@ function renderChrome(){
   document.body.dataset.layout=layout;
   $('#shell').className=`shell l${layout}${role?'':' out'}${navOpen?' open':''}`;
   const brand=`<span class="brand">Склад<small>ДЕМО</small></span>`;
-  if(!role){$('#side').innerHTML='';$('#bar').innerHTML=brand;return}
+  if(!role){$('#side').innerHTML='';$('#bar').innerHTML=brand+`<div class="bar-r">${themeBtn()}</div>`;return}
   const groups=NAV.map(([g,ks])=>[g,ks.filter(k=>TABS[k].r.includes(role))]).filter(x=>x[1].length);
   $('#side').innerHTML=brand+`<nav aria-label="Разделы">${groups.map(([g,ks])=>`<div class="grp"><div class="grp-t">${g}</div>${ks.map(k=>`<button class="ni ${k===tab?'on':''}" data-tab="${k}" ${k===tab?'aria-current="page"':''}><i data-lucide="${ICON[k]}"></i><span>${layout===2&&SHORT[k]||TABS[k].t}</span>${badge(k)}</button>`).join('')}</div>`).join('')}</nav>`+
     (layout===1?`<div class="foot"><div class="me">${ROLES[role]}<span>${USERS[role].login}</span></div><button class="ni" data-act="logout"><i data-lucide="log-out"></i><span>Выйти</span></button></div>`:'');
   const group=NAV.find(n=>n[1].includes(tab))[0];
   $('#bar').innerHTML=`<button class="burger" data-nav="toggle" aria-label="Открыть меню" aria-expanded="${navOpen}"><i data-lucide="menu"></i></button>
     <div class="crumb">${group} / <b>${TABS[tab].t}</b></div>
-    <div class="bar-r">${layout===2?`<span class="who-now">${ROLES[role]} · ${USERS[role].login}</span><button class="btn link sm" data-act="logout">Выйти</button>`:''}</div>`;
+    <div class="bar-r">${themeBtn()}${layout===2?`<span class="who-now">${ROLES[role]} · ${USERS[role].login}</span><button class="btn link sm" data-act="logout">Выйти</button>`:''}</div>`;
 }
 function render(){
   renderChrome();
@@ -762,8 +771,9 @@ function copyTsv(kind){
 
 /* ---------- события ---------- */
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-pick],[data-tab],[data-nav],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel]');
+  const b=e.target.closest('[data-pick],[data-tab],[data-nav],[data-setheme],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel]');
   if(!b)return;const ds=b.dataset;
+  if(ds.setheme){document.documentElement.dataset.theme=ds.setheme;try{localStorage.setItem(THEME,ds.setheme)}catch(e){}renderChrome();if(window.lucide)lucide.createIcons();return}
   if(ds.nav){navOpen=ds.nav==='toggle'?!navOpen:false;return renderChrome(),window.lucide&&lucide.createIcons()}
   if(ds.exp)return download(ds.exp);
   if(ds.copy)return copyTsv(ds.copy);
