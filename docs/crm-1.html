@@ -48,7 +48,6 @@ body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
 .burger{display:none;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:7px;padding:6px;cursor:pointer;line-height:0}
 .burger svg{width:20px;height:20px}
 .who-now{font-size:13px;color:var(--muted)}
-.lay button{padding:6px 10px;font-size:12px}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:16;background:var(--bg)}
 /* Вид 1: тёмная панель с группами и подписями */
 .l1 .side{width:244px;background:var(--side);color:var(--side-fg);padding:18px 12px;gap:18px}
@@ -191,7 +190,10 @@ const USERS={
   zav:{login:'sklad',pass:'3333',d:'Приёмка и выдача подрядчикам, без цен'}
 };
 const PAY={debt:'В долг',cash:'Наличные',perech:'Перечисление'};
-const KEY='sklad-demo-v1';
+// Вид задаётся ссылкой: crm-1.html, crm-2.html (или #v1, #v2). У каждого вида свои данные
+const layout=(()=>{const u=/crm-([12])\.html/.exec(location.pathname),h=/^#v([12])$/.exec(location.hash);return +(u?u[1]:h?h[1]:1)})();
+const FILE=(/crm-[12]\.html/.exec(location.pathname)||['demo.html'])[0];
+const KEY='sklad-demo-v1-l'+layout;
 
 function seed(){
   const P=[
@@ -242,15 +244,12 @@ function load(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=load();
 let role=null,tab='home',view=null,draft=null,msg='',loginPick=null,loginErr='';
+// Вход хранится в своей вкладке: другая ссылка или вкладка его не перехватывает
 const SESS=KEY+'-session';
-try{const r=localStorage.getItem(SESS);if(r&&ROLES[r])role=r}catch(e){}
+try{const r=sessionStorage.getItem(SESS);if(r&&ROLES[r])role=r}catch(e){}
 // Ссылка demo.html#zav и т.п. открывает вход под этой ролью, если сейчас вошли под другой
-{const h=location.hash.slice(1);if(USERS[h]){loginPick=h;if(role&&role!==h){role=null;try{localStorage.removeItem(SESS)}catch(e){}}}}
-// Вид: из адреса crm-1.html / crm-2.html, из #v1 / #v2, иначе последний выбранный
-const LAY=KEY+'-layout';
-let layout=1,navOpen=false;
-{const u=/crm-([12])\.html/.exec(location.pathname),h=/^#v([12])$/.exec(location.hash);let st=null;try{st=localStorage.getItem(LAY)}catch(e){}
- layout=+(u?u[1]:h?h[1]:(st==='2'?2:1))}
+{const h=location.hash.slice(1);if(USERS[h]){loginPick=h;if(role&&role!==h){role=null;try{sessionStorage.removeItem(SESS)}catch(e){}}}}
+let navOpen=false;
 const NAV=[['Учёт',['home','purchases','receive','issues','stock']],['Деньги',['suppliers','reports']],['Настройки',['dict']]];
 const ICON={home:'layout-dashboard',purchases:'shopping-cart',receive:'package-check',issues:'clipboard-list',stock:'boxes',suppliers:'wallet',reports:'chart-column',dict:'book-open'};
 const SHORT={suppliers:'Постав.',dict:'Справ.'};
@@ -318,8 +317,7 @@ function renderChrome(){
   const group=NAV.find(n=>n[1].includes(tab))[0];
   $('#bar').innerHTML=`<button class="burger" data-nav="toggle" aria-label="Открыть меню" aria-expanded="${navOpen}"><i data-lucide="menu"></i></button>
     <div class="crumb">${group} / <b>${TABS[tab].t}</b></div>
-    <div class="bar-r"><div class="seg lay" role="group" aria-label="Вид меню">${[1,2].map(v=>`<button class="${v===layout?'on':''}" data-layout="${v}">Вид ${v}</button>`).join('')}</div>
-    ${layout===2?`<span class="who-now">${ROLES[role]} · ${USERS[role].login}</span><button class="btn link sm" data-act="logout">Выйти</button>`:''}</div>`;
+    <div class="bar-r">${layout===2?`<span class="who-now">${ROLES[role]} · ${USERS[role].login}</span><button class="btn link sm" data-act="logout">Выйти</button>`:''}</div>`;
 }
 function render(){
   renderChrome();
@@ -689,7 +687,7 @@ function login(){
     <div><button class="btn" type="submit">Войти</button></div>
   </form>
   <div class="card"><h3>Доступы для теста</h3><div class="scroll"><table><thead><tr><th>Роль</th><th>Логин</th><th>Пароль</th><th>Ссылка на вход</th></tr></thead><tbody>
-  ${Object.entries(USERS).map(([k,x])=>`<tr><td>${ROLES[k]}</td><td class="num" style="text-align:left">${x.login}</td><td class="num" style="text-align:left">${x.pass}</td><td class="small">demo.html#${k}</td></tr>`).join('')}
+  ${Object.entries(USERS).map(([k,x])=>`<tr><td>${ROLES[k]}</td><td class="num" style="text-align:left">${x.login}</td><td class="num" style="text-align:left">${x.pass}</td><td class="small">${FILE}#${k}</td></tr>`).join('')}
   </tbody></table></div>
   <p class="note">Ссылка с #boss, #snab или #zav открывает вход с уже выбранной ролью — удобно отправить каждому тестеру свою. Это демо: пароли проверяются в браузере и защиты не дают. В рабочей программе у каждого сотрудника будет личная учётная запись на сервере.</p></div>
   </div>`;
@@ -698,7 +696,7 @@ function doLogin(){
   const l=$('#lg-login').value.trim().toLowerCase(),p=$('#lg-pass').value;
   const k=Object.keys(USERS).find(k=>USERS[k].login===l);
   if(!k||USERS[k].pass!==p){loginErr='Неверный логин или пароль. Доступы для теста — в таблице ниже.';loginPick=k||loginPick;return render()}
-  role=k;loginErr='';try{localStorage.setItem(SESS,role)}catch(e){}
+  role=k;loginErr='';try{sessionStorage.setItem(SESS,role)}catch(e){}
   go(firstTab(role));toast('Вы вошли как '+ROLES[role].toLowerCase());
 }
 
@@ -770,10 +768,9 @@ function copyTsv(kind){
 
 /* ---------- события ---------- */
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-pick],[data-tab],[data-layout],[data-nav],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel]');
+  const b=e.target.closest('[data-pick],[data-tab],[data-nav],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel]');
   if(!b)return;const ds=b.dataset;
   if(ds.nav){navOpen=ds.nav==='toggle'?!navOpen:false;return renderChrome(),window.lucide&&lucide.createIcons()}
-  if(ds.layout){layout=+ds.layout;navOpen=false;try{localStorage.setItem(LAY,layout)}catch(e){}return render()}
   if(ds.exp)return download(ds.exp);
   if(ds.copy)return copyTsv(ds.copy);
   copied=null;
@@ -791,7 +788,7 @@ document.addEventListener('click',e=>{
   if(ds.seg){draft[ds.seg]=ds.v;return render()}
   if(ds.delline!==undefined){draft.lines.splice(+ds.delline,1);return render()}
   const a=ds.act;
-  if(a==='logout'){loginPick=role;role=null;try{localStorage.removeItem(SESS)}catch(e){}view=null;draft=null;return render()}
+  if(a==='logout'){loginPick=role;role=null;try{sessionStorage.removeItem(SESS)}catch(e){}view=null;draft=null;return render()}
   if(a==='reset'){S=seed();view=null;draft=null;toast('Демо сброшено к исходным данным');return render()}
   if(a==='newPurchase')return go('purchases','new');
   if(a==='newIssue')return go('issues','new');
@@ -855,6 +852,8 @@ document.addEventListener('submit',e=>{
     addLog('Возврат поставщику: '+prod(pid).name+', '+fmt(q)+' '+prod(pid).unit);toast('Возврат проведён');view={sid:f.dataset.sid};return render();
   }
 });
+// Роли в соседних вкладках работают с одними данными: подхватываем их изменения, не сбивая открытую форму
+window.addEventListener('storage',e=>{if(e.key!==KEY||!e.newValue)return;try{S=JSON.parse(e.newValue)}catch(x){return}if(!document.querySelector('form'))render()});
 if(role&&!TABS[tab].r.includes(role))tab=firstTab(role);
 render();
 })();
