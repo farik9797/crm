@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>Демо учёта склада</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;800&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: шапка с ролью и меню, под ней один рабочий экран; таблицы скроллятся внутри своих контейнеров */
+:root{
+  --bg:#f3f5f4; --paper:#ffffff; --fg:#1b2422; --muted:#5b6865; --line:#d7dedb;
+  --accent:#0f6b5c; --on-accent:#ffffff; --accent-soft:#e1efeb; --tape:#e8a33d; --tape-soft:#fbefd9;
+  --ok:#2f7d4f; --warn:#a35f00; --bad:#b3261e; --bad-soft:#fbe4e2; --chrome:#e9edeb;
+  --side:#15332d; --side-fg:#dbe7e3; --side-mut:#8fb0a8; --side-hover:#1f4038; --on-tape:#1b2422;
+  --f-display:"Manrope",system-ui,sans-serif; --f-body:"Onest",system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121816; --paper:#1a2220; --fg:#e4ebe8; --muted:#97a6a2; --line:#2d3a37;
+  --accent:#5cc2ad; --on-accent:#0d1a17; --accent-soft:#1d3530; --tape:#f0b55a; --tape-soft:#3a2d17;
+  --ok:#6fcf97; --warn:#f0b55a; --bad:#ff8a80; --bad-soft:#3d1f1d; --chrome:#222c29;
+  --side:#0c1210; --side-fg:#d5e0dc; --side-mut:#7f928d; --side-hover:#18211e; --on-tape:#1b2422; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121816; --paper:#1a2220; --fg:#e4ebe8; --muted:#97a6a2; --line:#2d3a37;
+  --accent:#5cc2ad; --on-accent:#0d1a17; --accent-soft:#1d3530; --tape:#f0b55a; --tape-soft:#3a2d17;
+  --ok:#6fcf97; --warn:#f0b55a; --bad:#ff8a80; --bad-soft:#3d1f1d; --chrome:#222c29;
+  --side:#0c1210; --side-fg:#d5e0dc; --side-mut:#7f928d; --side-hover:#18211e; --on-tape:#1b2422; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
+.shell{display:flex;min-height:100vh}
+.side{position:sticky;top:0;align-self:flex-start;height:100vh;flex:none;display:flex;flex-direction:column;overflow-y:auto;z-index:15}
+.brand{font:800 18px var(--f-display);display:flex;align-items:center;gap:8px}
+.brand small{font:600 10px var(--f-mono);color:var(--warn);background:var(--tape-soft);padding:2px 6px;border-radius:4px;letter-spacing:.04em}
+.grp{display:flex;flex-direction:column;gap:2px}
+.grp-t{font:600 11px var(--f-mono);letter-spacing:.07em;text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;color:inherit;font:500 14px var(--f-body);padding:9px 12px;border-radius:7px;cursor:pointer;text-align:left;position:relative}
+.ni svg{width:18px;height:18px;flex:none}
+.bdg{margin-left:auto;font:600 11px var(--f-mono);font-style:normal;background:var(--tape);color:var(--on-tape);padding:1px 7px;border-radius:9px}
+.foot{margin-top:auto;display:flex;flex-direction:column;gap:6px}
+.scrim{display:none}
+.work{flex:1;min-width:0;display:flex;flex-direction:column}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;display:flex;align-items:center;gap:12px;background:var(--bg);border-bottom:1px solid var(--line);padding-block:9px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.crumb{font-size:14px;color:var(--muted);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb b{color:var(--fg);font-weight:600}
+.bar-r{margin-left:auto;display:flex;align-items:center;gap:10px;flex:none}
+.burger{display:none;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:7px;padding:6px;cursor:pointer;line-height:0}
+.burger svg{width:20px;height:20px}
+.who-now{font-size:13px;color:var(--muted)}
+.lay button{padding:6px 10px;font-size:12px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:16;background:var(--bg)}
+/* Вид 1: тёмная панель с группами и подписями */
+.l1 .side{width:244px;background:var(--side);color:var(--side-fg);padding:18px 12px;gap:18px}
+.l1 .brand{padding:2px 12px;color:#fff}
+.l1 .grp-t{color:var(--side-mut);padding:0 12px 4px}
+.l1 nav{display:flex;flex-direction:column;gap:18px}
+.l1 .ni:hover{background:var(--side-hover)}
+.l1 .ni.on{background:var(--tape);color:var(--on-tape);font-weight:600}
+.l1 .ni.on .bdg{background:var(--on-tape);color:#fff}
+.l1 .me{padding:10px 12px;font-size:13px;border-top:1px solid var(--side-hover)}
+.l1 .me span{display:block;color:var(--side-mut);font:12px var(--f-mono)}
+/* Вид 2: светлая узкая полоса, значок над подписью */
+.l2 .side{width:88px;background:var(--paper);border-right:1px solid var(--line);padding:14px 8px;gap:12px}
+.l2 .brand{justify-content:center;flex-direction:column;gap:3px;font-size:15px}
+.l2 .grp-t{display:none}
+.l2 nav{display:flex;flex-direction:column;gap:8px}
+.l2 .grp+.grp{border-top:1px solid var(--line);padding-top:8px}
+.l2 .ni{flex-direction:column;gap:3px;font-size:11px;padding:8px 2px;color:var(--muted);text-align:center}
+.l2 .ni svg{width:20px;height:20px}
+.l2 .ni:hover{color:var(--fg);background:var(--bg)}
+.l2 .ni.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.l2 .bdg{position:absolute;top:3px;right:10px;margin:0;padding:0 5px}
+.out .side,.out .scrim{display:none}
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.page{max-width:1240px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:24px;font-weight:800} h2{font-size:18px;font-weight:800} h3{font-size:15px;font-weight:600}
+p{margin:0;max-width:70ch}
+.muted{color:var(--muted)} .small{font-size:13px}
+.head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.kpi{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.kpi small{font-size:12px;color:var(--muted)}
+.kpi b{font:600 20px var(--f-mono);font-variant-numeric:tabular-nums}
+.split{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--line);margin-top:4px}
+.split i{display:block}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font:600 11px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--accent-soft)}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.pill{display:inline-block;font:600 11px var(--f-mono);padding:3px 8px;border-radius:10px;white-space:nowrap}
+.p-ok{background:var(--accent-soft);color:var(--ok)} .p-wait{background:var(--tape-soft);color:var(--warn)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-n{background:var(--chrome);color:var(--muted)}
+.btn{font:600 14px var(--f-body);padding:9px 14px;border-radius:7px;background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);cursor:pointer;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.link{background:transparent;border-color:transparent;color:var(--accent);padding:4px 6px}
+.btn:hover{filter:brightness(1.08)}
+button:focus-visible,input:focus-visible,select:focus-visible,label.file:focus-within{outline:2px solid var(--tape);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f label{font-size:12px;color:var(--muted)}
+input,select{font:14px var(--f-body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+input.q{width:100px;text-align:right;font-family:var(--f-mono)}
+input.pr{width:120px;text-align:right;font-family:var(--f-mono)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:var(--bg);color:var(--fg);font:500 13px var(--f-body);padding:8px 11px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+.err{color:var(--bad);font-size:13px}
+.banner{font-size:13px;background:var(--tape-soft);border-left:3px solid var(--tape);padding:9px 12px;border-radius:0 6px 6px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+.waybill{background:#ffffff;color:#1b1b1b;border:1px solid var(--line);border-radius:4px;padding:22px;display:flex;flex-direction:column;gap:12px;min-width:520px}
+.waybill h3{text-align:center;font-size:16px;font-weight:800}
+.waybill th{color:#555}.waybill td,.waybill th{border-bottom:1px solid #ccc}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px}
+.sign div{border-top:1px solid #333;padding-top:4px;font-size:11px;color:#555}
+.sign b{display:block;font-size:13px;color:#1b1b1b;margin-bottom:22px}
+label.file{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+label.file input{position:absolute;opacity:0;width:1px;height:1px}
+.scen{display:flex;flex-direction:column;gap:12px}
+.scen .card{gap:8px}
+.scen ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.chk{display:flex;gap:8px;align-items:center;font-weight:600;font-family:var(--f-display);cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.note{font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.del{color:var(--bad)}
+.user{margin-left:auto;display:flex;gap:6px;align-items:center;font-size:14px}
+.login{max-width:760px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.who{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.whocard{text-align:left;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:10px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:4px;font:inherit}
+.whocard b{font-family:var(--f-display);font-size:16px}
+.whocard span{font-size:13px;color:var(--muted)}
+.whocard:hover{border-color:var(--accent)}
+.whocard.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+#login .f{max-width:320px}
+@media (max-width:640px){.who{grid-template-columns:1fr}}
+.copybox{width:100%;min-height:120px;font:12px var(--f-mono)}
+@media (max-width:860px){
+  .burger{display:inline-flex}
+  .out .burger,.l2 .burger{display:none}
+  .l1 .side{position:fixed;left:0;top:0;bottom:0;height:auto;transform:translateX(-100%);padding-left:max(12px,env(safe-area-inset-left,0px));padding-top:calc(18px + env(safe-area-inset-top,0px))}
+  .l1.open .side{transform:none}
+  .l1.open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:14;border:0;width:100%}
+  .l2 .side{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;height:auto;flex-direction:row;overflow-x:auto;border-right:0;border-top:1px solid var(--line);padding:4px max(6px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
+  .l2 .brand{display:none}
+  .l2 nav{flex-direction:row;gap:0;flex:1;justify-content:space-around}
+  .l2 .grp{flex-direction:row;flex:1;justify-content:space-around}
+  .l2 .grp+.grp{border-top:0;padding-top:0}
+  .l2 .ni{min-width:64px}
+  .l2 main{padding-block-end:96px}
+  body[data-layout="2"] .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .who-now{display:none}
+}
+@media (prefers-reduced-motion:no-preference){.l1 .side{transition:transform .18s ease-out}}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{opacity:0;transform:translate(-50%,8px)}}}
+</style>
+
+<div class="shell" id="shell">
+  <aside class="side" id="side" aria-label="Меню"></aside>
+  <button class="scrim" data-nav="close" aria-label="Закрыть меню"></button>
+  <div class="work">
+    <header class="bar" id="bar"></header>
+    <main><div class="page" id="app"></div></main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+(function(){
+const ROLES={boss:'Руководитель',snab:'Снабженец',zav:'Завсклад'};
+const TABS={
+  home:{t:'Главная',r:['boss']},
+  purchases:{t:'Закупки',r:['boss','snab']},
+  receive:{t:'Приёмка',r:['zav']},
+  issues:{t:'Выдача',r:['boss','zav']},
+  stock:{t:'Остатки',r:['boss','snab','zav']},
+  suppliers:{t:'Поставщики',r:['boss']},
+  reports:{t:'Отчёты',r:['boss']},
+  dict:{t:'Справочники',r:['boss','snab']}
+};
+const UNITS=['шт','м','м²','м³','кг','лист','мешок','рулон','упаковка','рейс'];
+// Демо-доступы: проверяются в браузере, защиты не дают
+const USERS={
+  boss:{login:'rahbar',pass:'1111',d:'Видит всё: цены, долги поставщикам, отчёты'},
+  snab:{login:'snab',pass:'2222',d:'Вводит закупки и видит их цены'},
+  zav:{login:'sklad',pass:'3333',d:'Приёмка и выдача подрядчикам, без цен'}
+};
+const PAY={debt:'В долг',cash:'Наличные',perech:'Перечисление'};
+const KEY='sklad-demo-v1';
+
+function seed(){
+  const P=[
+    ['KNAUF GIPSOKARTON STENAVOY','лист',60500],['KNAUF GIPSOKARTON AGNEUPORNIY','лист',76500],
+    ['KNAUF MINVATA RULON 16,6','рулон',240000],['KNAUF ROTBAND 25','мешок',50000],
+    ['DEMIR PROFIL 27*28 060','м',4300],['SOMAFIX KALBASA QORA 752','шт',65000],
+    ['SOMAFIX PENA SE 600','шт',65000],['AKKERMAN SEMENT 575','мешок',37500],
+    ['UDDA ZAJIM 1,5','шт',35000],['VENTUM 710','шт',39000],['PENA PLEX 5','лист',31500],
+    ['MAPE FUGA 112 5','шт',185000],['ANKER BOLT 10*120','шт',2000],['AGRAF XITOY','шт',1000]
+  ].map((p,i)=>({id:'p'+(i+1),name:p[0],unit:p[1],price:p[2]}));
+  return {
+    seq:{z:3,n:2,o:1},
+    products:P,
+    suppliers:[
+      {id:'s1',name:'Поставщик стройматериалов',open:{uzs:150000000,usd:50},note:'пример'},
+      {id:'s2',name:'Поставщик Б (пример)',open:{uzs:0,usd:0},note:''}
+    ],
+    contractors:[{id:'c1',name:'Подрядчик А (пример)'},{id:'c2',name:'Подрядчик Б (пример)'}],
+    purchases:[
+      {id:'z1',no:'З-0001',date:'2026-11-02',sid:'s1',inv:'87 901',cur:'uzs',pay:'debt',
+       lines:[{pid:'p1',qty:100,price:60500},{pid:'p5',qty:4320,price:4300},{svc:'Доставка',qty:1,price:250000}],
+       status:'diff',recv:{p1:100,p5:4300},recvDate:'2026-11-03'},
+      {id:'z2',no:'З-0002',date:'2026-11-03',sid:'s1',inv:'87 955',cur:'uzs',pay:'cash',
+       lines:[{pid:'p6',qty:200,price:65000},{pid:'p4',qty:100,price:50000}],
+       status:'done',recv:{p6:200,p4:100},recvDate:'2026-11-03'},
+      {id:'z3',no:'З-0003',date:'2026-11-05',sid:'s1',inv:'88 120',cur:'uzs',pay:'perech',
+       lines:[{pid:'p3',qty:30,price:240000},{pid:'p2',qty:50,price:76500},{svc:'Доставка',qty:1,price:120000}],
+       status:'transit',recv:{},recvDate:null}
+    ],
+    issues:[
+      {id:'n1',no:'Н-0001',date:'2026-11-04',cid:'c1',who:'Каримов А. (пример)',lines:[{pid:'p1',qty:40},{pid:'p5',qty:1200}],photo:'nakladnaya-0001.jpg'},
+      {id:'n2',no:'Н-0002',date:'2026-11-05',cid:'c2',who:'Юсупов Б. (пример)',lines:[{pid:'p6',qty:150}],photo:''}
+    ],
+    payments:[{id:'o1',date:'2026-11-04',sid:'s1',amount:20000000,cur:'uzs',method:'perech',type:'pay'}],
+    returns:[],
+    log:[
+      {d:'2026-11-05',r:'snab',t:'Закупка З-0003 отправлена на склад'},
+      {d:'2026-11-05',r:'zav',t:'Выдача Н-0002 → Подрядчик Б (пример), ждёт фото подписи'},
+      {d:'2026-11-04',r:'boss',t:'Оплата поставщику 20 000 000 сум, перечисление'},
+      {d:'2026-11-04',r:'zav',t:'Выдача Н-0001 → Подрядчик А (пример)'},
+      {d:'2026-11-03',r:'zav',t:'Приёмка З-0001: расхождение по DEMIR PROFIL (−20 м)'},
+      {d:'2026-11-03',r:'zav',t:'Приёмка З-0002 без расхождений'}
+    ],
+    checks:{}
+  };
+}
+function load(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}catch(e){}return seed()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+let S=load();
+let role=null,tab='home',view=null,draft=null,msg='',loginPick=null,loginErr='';
+const SESS=KEY+'-session';
+try{const r=localStorage.getItem(SESS);if(r&&ROLES[r])role=r}catch(e){}
+// Ссылка demo.html#zav и т.п. открывает вход под этой ролью, если сейчас вошли под другой
+{const h=location.hash.slice(1);if(USERS[h]){loginPick=h;if(role&&role!==h){role=null;try{localStorage.removeItem(SESS)}catch(e){}}}}
+// Вид: из адреса crm-1.html / crm-2.html, из #v1 / #v2, иначе последний выбранный
+const LAY=KEY+'-layout';
+let layout=1,navOpen=false;
+{const u=/crm-([12])\.html/.exec(location.pathname),h=/^#v([12])$/.exec(location.hash);let st=null;try{st=localStorage.getItem(LAY)}catch(e){}
+ layout=+(u?u[1]:h?h[1]:(st==='2'?2:1))}
+const NAV=[['Учёт',['home','purchases','receive','issues','stock']],['Деньги',['suppliers','reports']],['Настройки',['dict']]];
+const ICON={home:'layout-dashboard',purchases:'shopping-cart',receive:'package-check',issues:'clipboard-list',stock:'boxes',suppliers:'wallet',reports:'chart-column',dict:'book-open'};
+const SHORT={suppliers:'Постав.',dict:'Справ.'};
+const firstTab=r=>Object.keys(TABS).find(k=>TABS[k].r.includes(r));
+
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>(Math.round(n*100)/100).toLocaleString('ru-RU',{maximumFractionDigits:2});
+const money=(n,cur)=>fmt(n)+(cur==='usd'?' $':'');
+const dd=d=>d?d.slice(8,10)+'.'+d.slice(5,7):'';
+const today=()=>new Date().toISOString().slice(0,10);
+const prod=id=>S.products.find(p=>p.id===id);
+const sup=id=>S.suppliers.find(s=>s.id===id);
+const con=id=>S.contractors.find(c=>c.id===id);
+const prices=()=>role!=='zav';
+const lineName=l=>l.svc?l.svc:(prod(l.pid)||{}).name;
+const lineSum=ls=>ls.reduce((a,l)=>a+l.qty*l.price,0);
+function toast(t){const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),2600)}
+function addLog(t){S.log.unshift({d:today(),r:role,t})}
+
+/* ---------- расчёты ---------- */
+function stockOf(pid){
+  let ordered=0,recv=0,iss=0,ret=0;
+  S.purchases.forEach(z=>{z.lines.forEach(l=>{if(l.pid===pid)ordered+=l.qty});recv+=(z.recv[pid]||0)});
+  S.issues.forEach(n=>n.lines.forEach(l=>{if(l.pid===pid)iss+=l.qty}));
+  S.returns.forEach(v=>v.lines.forEach(l=>{if(l.pid===pid)ret+=l.qty}));
+  return {ordered,recv,iss,ret,left:recv-iss-ret};
+}
+function avgPrice(pid){
+  let q=0,s=0;S.purchases.forEach(z=>{if(z.cur!=='uzs')return;z.lines.forEach(l=>{if(l.pid===pid){q+=l.qty;s+=l.qty*l.price}})});
+  return q?s/q:(prod(pid)||{}).price||0;
+}
+function supOps(sid){
+  const ops=[];
+  S.purchases.filter(z=>z.sid===sid).forEach(z=>{
+    const sum=lineSum(z.lines);
+    ops.push({d:z.date,t:'Закупка '+z.no+(z.inv?', накл. '+z.inv:''),cur:z.cur,plus:sum,pill:z.pay});
+    if(z.pay!=='debt')ops.push({d:z.date,t:'Оплата при закупке '+z.no,cur:z.cur,minus:sum,pill:z.pay});
+  });
+  S.payments.filter(o=>o.sid===sid).forEach(o=>ops.push({d:o.date,t:o.type==='discount'?'Скидка':'Оплата',cur:o.cur,minus:o.amount,pill:o.type==='discount'?'disc':o.method}));
+  S.returns.filter(v=>v.sid===sid).forEach(v=>ops.push({d:v.date,t:'Возврат товара',cur:'uzs',minus:lineSum(v.lines),pill:'ret'}));
+  return ops.sort((a,b)=>a.d.localeCompare(b.d));
+}
+function debt(sid){
+  const s=sup(sid),r={uzs:s.open.uzs,usd:s.open.usd};
+  supOps(sid).forEach(o=>{r[o.cur]+=(o.plus||0)-(o.minus||0)});return r;
+}
+
+/* ---------- каркас ---------- */
+function badge(k){
+  let n=0;
+  if(k==='receive')n=S.purchases.filter(z=>z.status==='transit').length;
+  if(k==='purchases'&&role==='boss')n=S.purchases.filter(z=>z.status==='diff').length;
+  if(k==='issues')n=S.issues.filter(x=>!x.photo).length;
+  return n?`<em class="bdg">${n}</em>`:'';
+}
+function renderChrome(){
+  document.body.dataset.layout=layout;
+  $('#shell').className=`shell l${layout}${role?'':' out'}${navOpen?' open':''}`;
+  const brand=`<span class="brand">Склад<small>ДЕМО</small></span>`;
+  if(!role){$('#side').innerHTML='';$('#bar').innerHTML=brand;return}
+  const groups=NAV.map(([g,ks])=>[g,ks.filter(k=>TABS[k].r.includes(role))]).filter(x=>x[1].length);
+  $('#side').innerHTML=brand+`<nav aria-label="Разделы">${groups.map(([g,ks])=>`<div class="grp"><div class="grp-t">${g}</div>${ks.map(k=>`<button class="ni ${k===tab?'on':''}" data-tab="${k}" ${k===tab?'aria-current="page"':''}><i data-lucide="${ICON[k]}"></i><span>${layout===2&&SHORT[k]||TABS[k].t}</span>${badge(k)}</button>`).join('')}</div>`).join('')}</nav>`+
+    (layout===1?`<div class="foot"><div class="me">${ROLES[role]}<span>${USERS[role].login}</span></div><button class="ni" data-act="logout"><i data-lucide="log-out"></i><span>Выйти</span></button></div>`:'');
+  const group=NAV.find(n=>n[1].includes(tab))[0];
+  $('#bar').innerHTML=`<button class="burger" data-nav="toggle" aria-label="Открыть меню" aria-expanded="${navOpen}"><i data-lucide="menu"></i></button>
+    <div class="crumb">${group} / <b>${TABS[tab].t}</b></div>
+    <div class="bar-r"><div class="seg lay" role="group" aria-label="Вид меню">${[1,2].map(v=>`<button class="${v===layout?'on':''}" data-layout="${v}">Вид ${v}</button>`).join('')}</div>
+    ${layout===2?`<span class="who-now">${ROLES[role]} · ${USERS[role].login}</span><button class="btn link sm" data-act="logout">Выйти</button>`:''}</div>`;
+}
+function render(){
+  renderChrome();
+  const f=role?{home,purchases,receive,issues,stock,suppliers,reports,dict}[tab]:login;
+  $('#app').innerHTML=`<div class="banner"><span>Демо для теста. Все данные — примеры. Всё, что вы введёте, хранится только в этом браузере.</span><button class="btn link sm" data-act="reset">Сбросить демо</button></div>`+f();
+  if(window.lucide)lucide.createIcons();
+  save();
+}
+function go(t,v){tab=t;view=v||null;draft=null;navOpen=false;window.scrollTo(0,0);render()}
+
+/* ---------- Главная ---------- */
+function home(){
+  let bought=0,by={debt:0,cash:0,perech:0},recvV=0,issV=0;
+  S.purchases.filter(z=>z.cur==='uzs').forEach(z=>{const s=lineSum(z.lines);bought+=s;by[z.pay]+=s});
+  S.products.forEach(p=>{const st=stockOf(p.id),a=avgPrice(p.id);recvV+=st.recv*a;issV+=st.iss*a});
+  let leftV=0;S.products.forEach(p=>{leftV+=stockOf(p.id).left*avgPrice(p.id)});
+  let d={uzs:0,usd:0};S.suppliers.forEach(s=>{const x=debt(s.id);d.uzs+=x.uzs;d.usd+=x.usd});
+  const pc=k=>bought?(by[k]/bought*100):0;
+  const transit=S.purchases.filter(z=>z.status==='transit').length, diffs=S.purchases.filter(z=>z.status==='diff').length, unsigned=S.issues.filter(n=>!n.photo).length;
+  return `<div class="head"><h1>Сводка</h1><span class="muted small">с начала учёта в демо</span></div>
+  <div class="kpis">
+    <div class="kpi"><small>Закуплено</small><b>${fmt(bought)}</b>
+      <div class="split"><i style="width:${pc('perech')}%;background:var(--accent)"></i><i style="width:${pc('cash')}%;background:var(--tape)"></i><i style="width:${pc('debt')}%;background:var(--bad)"></i></div>
+      <small>перечисл. ${fmt(by.perech)} · нал ${fmt(by.cash)} · в долг ${fmt(by.debt)}</small></div>
+    <div class="kpi"><small>Принято складом</small><b>${fmt(recvV)}</b><small>${transit} в пути · ${diffs} с расхождением</small></div>
+    <div class="kpi"><small>Выдано подрядчикам</small><b>${fmt(issV)}</b><small>${S.issues.length} накладных · ${unsigned} без фото подписи</small></div>
+    <div class="kpi"><small>Остаток на складе</small><b>${fmt(leftV)}</b><small>по средней цене закупки</small></div>
+    <div class="kpi"><small>Долг поставщикам</small><b style="color:var(--warn)">${fmt(d.uzs)}</b><small>+ ${fmt(d.usd)} $</small></div>
+  </div>
+  <div class="card"><h2>Журнал действий</h2><div class="scroll"><table><thead><tr><th>Дата</th><th>Кто</th><th>Действие</th></tr></thead><tbody>
+  ${S.log.slice(0,15).map(l=>`<tr><td>${dd(l.d)}</td><td>${ROLES[l.r]}</td><td>${esc(l.t)}</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- Закупки ---------- */
+function stPill(s){return s==='transit'?'<span class="pill p-wait">в пути</span>':s==='diff'?'<span class="pill p-bad">расхождение</span>':'<span class="pill p-ok">принято</span>'}
+function payPill(p){return p==='debt'?'<span class="pill p-bad">в долг</span>':p==='cash'?'<span class="pill p-wait">наличные</span>':p==='perech'?'<span class="pill p-ok">перечисление</span>':p==='disc'?'<span class="pill p-n">скидка</span>':p==='ret'?'<span class="pill p-n">возврат</span>':''}
+function purchases(){
+  if(view==='new')return purchaseForm();
+  if(view)return purchaseView(view);
+  return `<div class="head"><h1>Закупки</h1><div class="row">${expBtns('purchases')}<button class="btn" data-act="newPurchase">+ Новая закупка</button></div></div>${copyBox()}
+  <div class="card"><div class="scroll"><table><thead><tr><th>№</th><th>Дата</th><th>Поставщик</th><th>Оплата</th><th class="num">Позиций</th><th class="num">Сумма</th><th>Статус</th></tr></thead><tbody>
+  ${S.purchases.slice().reverse().map(z=>`<tr class="click" data-open-z="${z.id}"><td>${z.no}</td><td>${dd(z.date)}</td><td>${esc(sup(z.sid).name)}</td><td>${payPill(z.pay)}</td><td class="num">${z.lines.length}</td><td class="num">${money(lineSum(z.lines),z.cur)}</td><td>${stPill(z.status)}</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+function purchaseView(id){
+  const z=S.purchases.find(x=>x.id===id);
+  return `<div class="head"><div><button class="btn link sm" data-back="purchases">← Все закупки</button><h1>Закупка ${z.no}</h1></div>${stPill(z.status)}</div>
+  <div class="card"><p>${dd(z.date)} · ${esc(sup(z.sid).name)} · накладная поставщика ${esc(z.inv||'—')} · ${payPill(z.pay)}</p>
+  <div class="scroll"><table><thead><tr><th>Товар</th><th>Ед.</th><th class="num">Заказано</th><th class="num">Принято</th><th class="num">Цена</th><th class="num">Сумма</th></tr></thead><tbody>
+  ${z.lines.map(l=>{const p=l.pid&&prod(l.pid),r=l.pid?(z.status==='transit'?'—':(z.recv[l.pid]??0)):'услуга';const bad=l.pid&&z.status!=='transit'&&r!==l.qty;
+    return `<tr><td>${esc(lineName(l))}</td><td>${p?p.unit:'рейс'}</td><td class="num">${fmt(l.qty)}</td><td class="num" style="${bad?'color:var(--bad);font-weight:600':''}">${typeof r==='number'?fmt(r):r}</td><td class="num">${fmt(l.price)}</td><td class="num">${fmt(l.qty*l.price)}</td></tr>`}).join('')}
+  <tr><td colspan="5"><b>Итого</b></td><td class="num"><b>${money(lineSum(z.lines),z.cur)}</b></td></tr>
+  </tbody></table></div>
+  ${z.recvDate?`<p class="note">Принято завскладом ${dd(z.recvDate)}.</p>`:'<p class="note">Ждёт приёмки на складе. Переключитесь на роль «Завсклад» → «Приёмка».</p>'}</div>`;
+}
+function purchaseForm(){
+  if(!draft)draft={sid:'s1',inv:'',cur:'uzs',pay:'debt',date:today(),lines:[{pid:'',qty:'',price:''}],err:''};
+  const opts=(sel)=>`<option value="">— выберите —</option>`+S.products.map(p=>`<option value="${p.id}" ${sel===p.id?'selected':''}>${esc(p.name)}</option>`).join('')+`<option value="svc" ${sel==='svc'?'selected':''}>Доставка (услуга)</option>`;
+  return `<div class="head"><div><button class="btn link sm" data-back="purchases">← Все закупки</button><h1>Новая закупка</h1></div></div>
+  <form class="card" id="pform" novalidate>
+    <div class="row">
+      <div class="f"><label for="pf-date">Дата</label><input id="pf-date" type="date" value="${draft.date}" data-d="date"></div>
+      <div class="f"><label for="pf-sid">Поставщик</label><select id="pf-sid" data-d="sid">${S.suppliers.map(s=>`<option value="${s.id}" ${draft.sid===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>
+      <div class="f"><label for="pf-inv">№ накладной поставщика</label><input id="pf-inv" value="${esc(draft.inv)}" data-d="inv" placeholder="например 88 200"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Валюта</label><div class="seg">${[['uzs','сум'],['usd','$']].map(([k,v])=>`<button type="button" class="${draft.cur===k?'on':''}" data-seg="cur" data-v="${k}">${v}</button>`).join('')}</div></div>
+      <div class="f"><label>Оплата</label><div class="seg">${Object.entries(PAY).map(([k,v])=>`<button type="button" class="${draft.pay===k?'on':''}" data-seg="pay" data-v="${k}">${v}</button>`).join('')}</div></div>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Товар</th><th>Ед.</th><th class="num">Кол-во</th><th class="num">Цена</th><th class="num">Сумма</th><th></th></tr></thead><tbody>
+    ${draft.lines.map((l,i)=>{const p=l.pid&&l.pid!=='svc'&&prod(l.pid);return `<tr>
+      <td><select id="pl-p${i}" data-line="${i}" data-k="pid" aria-label="Товар">${opts(l.pid)}</select></td>
+      <td>${p?p.unit:l.pid==='svc'?'рейс':''}</td>
+      <td class="num"><input id="pl-q${i}" class="q" inputmode="decimal" value="${l.qty}" data-line="${i}" data-k="qty" aria-label="Количество"></td>
+      <td class="num"><input id="pl-r${i}" class="pr" inputmode="decimal" value="${l.price}" data-line="${i}" data-k="price" aria-label="Цена"></td>
+      <td class="num" id="pl-s${i}">${fmt((+l.qty||0)*(+l.price||0))}</td>
+      <td>${draft.lines.length>1?`<button type="button" class="btn link sm del" data-delline="${i}" aria-label="Удалить строку">✕</button>`:''}</td></tr>`}).join('')}
+    </tbody></table></div>
+    <div class="row"><button type="button" class="btn ghost sm" data-act="addLine">+ Добавить строку</button>${draft.np?'':'<button type="button" class="btn ghost sm" data-act="newProdInline">+ Новый товар</button>'}</div>
+    ${draft.np?`<div class="card" style="background:var(--bg)"><h3>Новый товар в справочник</h3><div class="row">
+      <div class="f" style="flex:1;min-width:220px"><label for="np-name">Наименование</label><input id="np-name" data-np="name" value="${esc(draft.np.name)}" placeholder="как в накладной поставщика"></div>
+      <div class="f"><label for="np-unit">Единица</label><select id="np-unit" data-np="unit">${UNITS.map(u=>`<option ${draft.np.unit===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      <button type="button" class="btn sm" data-act="saveNewProd">Добавить и выбрать</button><button type="button" class="btn link sm" data-act="cancelNewProd">Отмена</button></div>
+      ${draft.np.err?`<p class="err" role="alert">${esc(draft.np.err)}</p>`:''}</div>`:''}
+    <div class="head"><b class="num" id="pf-total">Итого: ${money(draftTotal(),draft.cur)}</b>
+      <button type="submit" class="btn">Отправить на склад</button></div>
+    <p class="note" id="pf-hint">${draft.pay==='debt'?'Сумма закупки добавится к долгу поставщику.':'Закупка сразу оплачена: долг поставщику не изменится, сумма попадёт в «'+PAY[draft.pay]+'».'}</p>
+    ${draft.err?`<p class="err" role="alert">${esc(draft.err)}</p>`:''}
+  </form>`;
+}
+function draftTotal(){return draft.lines.reduce((a,l)=>a+(+l.qty||0)*(+l.price||0),0)}
+function submitPurchase(){
+  const ls=draft.lines.filter(l=>l.pid);
+  if(!ls.length){draft.err='Добавьте хотя бы один товар.';return render()}
+  const bad=ls.find(l=>!(+l.qty>0)||!(+l.price>0));
+  if(bad){draft.err='У строки «'+(bad.pid==='svc'?'Доставка':prod(bad.pid).name)+'» укажите количество и цену больше нуля.';return render()}
+  const no='З-'+String(++S.seq.z).padStart(4,'0');
+  const z={id:'z'+Date.now(),no,date:draft.date||today(),sid:draft.sid,inv:draft.inv.trim(),cur:draft.cur,pay:draft.pay,
+    lines:ls.map(l=>l.pid==='svc'?{svc:'Доставка',qty:+l.qty,price:+l.price}:{pid:l.pid,qty:+l.qty,price:+l.price}),status:'transit',recv:{},recvDate:null};
+  S.purchases.push(z);addLog('Закупка '+no+' отправлена на склад, '+money(lineSum(z.lines),z.cur)+', '+PAY[z.pay].toLowerCase());
+  toast('Закупка '+no+' отправлена на склад');go('purchases',z.id);
+}
+
+/* ---------- Приёмка ---------- */
+function receive(){
+  if(view)return receiveForm(view);
+  const list=S.purchases.filter(z=>z.status==='transit');
+  const done=S.purchases.filter(z=>z.status!=='transit').slice().reverse();
+  return `<div class="head"><h1>Приёмка</h1></div>
+  <div class="card"><h2>Ждут приёмки</h2>${list.length?`<div class="scroll"><table><thead><tr><th>№</th><th>Отправлено</th><th>Поставщик</th><th class="num">Позиций</th><th></th></tr></thead><tbody>
+  ${list.map(z=>`<tr class="click" data-recv="${z.id}"><td>${z.no}</td><td>${dd(z.date)}</td><td>${esc(sup(z.sid).name)}</td><td class="num">${z.lines.filter(l=>l.pid).length}</td><td><button class="btn sm" data-recv="${z.id}">Принять</button></td></tr>`).join('')}
+  </tbody></table></div>`:'<p class="muted">Нет закупок в пути. Создайте закупку в роли «Снабженец».</p>'}</div>
+  <div class="card"><h2>Принятые</h2><div class="scroll"><table><thead><tr><th>№</th><th>Принято</th><th>Поставщик</th><th>Статус</th></tr></thead><tbody>
+  ${done.map(z=>`<tr><td>${z.no}</td><td>${dd(z.recvDate)}</td><td>${esc(sup(z.sid).name)}</td><td>${stPill(z.status)}</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+function receiveForm(id){
+  const z=S.purchases.find(x=>x.id===id);
+  return `<div class="head"><div><button class="btn link sm" data-back="receive">← Приёмка</button><h1>Приёмка ${z.no}</h1></div></div>
+  <form class="card" id="rform" data-id="${z.id}" novalidate>
+    <p class="muted small">Впишите, сколько пришло по факту. Если меньше или больше — руководитель увидит расхождение.</p>
+    <div class="scroll"><table><thead><tr><th>Товар</th><th>Ед.</th><th class="num">Отправлено</th><th class="num">Пришло</th></tr></thead><tbody>
+    ${z.lines.filter(l=>l.pid).map((l,i)=>`<tr><td>${esc(prod(l.pid).name)}</td><td>${prod(l.pid).unit}</td><td class="num">${fmt(l.qty)}</td><td class="num"><input id="rf-${i}" class="q" inputmode="decimal" value="${l.qty}" data-pid="${l.pid}" aria-label="Пришло: ${esc(prod(l.pid).name)}"></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="f"><label for="rf-comment">Комментарий (необязательно)</label><input id="rf-comment" placeholder="например: 20 м профиля погнуты, не приняли"></div>
+    <div><button type="submit" class="btn">Принять на склад</button></div>
+  </form>`;
+}
+function submitReceive(form){
+  const z=S.purchases.find(x=>x.id===form.dataset.id);const recv={};let diff=[];let bad=false;
+  form.querySelectorAll('input[data-pid]').forEach(inp=>{const v=+String(inp.value).replace(',','.');if(!(v>=0)||inp.value==='')bad=true;recv[inp.dataset.pid]=v});
+  if(bad){toast('Укажите количество по каждой строке (0, если не пришло)');return}
+  z.lines.forEach(l=>{if(l.pid&&recv[l.pid]!==l.qty)diff.push(prod(l.pid).name+' ('+(recv[l.pid]-l.qty>0?'+':'')+fmt(recv[l.pid]-l.qty)+' '+prod(l.pid).unit+')')});
+  z.recv=recv;z.recvDate=today();z.status=diff.length?'diff':'done';
+  const c=$('#rf-comment').value.trim();
+  addLog('Приёмка '+z.no+(diff.length?': расхождение — '+diff.join(', '):' без расхождений')+(c?'. '+c:''));
+  toast(diff.length?'Принято с расхождением, руководитель увидит':'Принято без расхождений');go('receive');
+}
+
+/* ---------- Выдача ---------- */
+function issues(){
+  if(view==='new')return issueForm();
+  if(view)return waybill(view);
+  return `<div class="head"><h1>Выдача подрядчикам</h1><div class="row">${expBtns('issues')}${role==='zav'?'<button class="btn" data-act="newIssue">+ Новая выдача</button>':''}</div></div>${copyBox()}
+  <div class="card"><div class="scroll"><table><thead><tr><th>№</th><th>Дата</th><th>Подрядчик</th><th>Получил</th><th class="num">Позиций</th>${prices()?'<th class="num">Сумма</th>':''}<th>Подпись</th></tr></thead><tbody>
+  ${S.issues.slice().reverse().map(n=>`<tr class="click" data-open-n="${n.id}"><td>${n.no}</td><td>${dd(n.date)}</td><td>${esc(con(n.cid).name)}</td><td>${esc(n.who)}</td><td class="num">${n.lines.length}</td>${prices()?`<td class="num">${fmt(n.lines.reduce((a,l)=>a+l.qty*avgPrice(l.pid),0))}</td>`:''}<td>${n.photo?'<span class="pill p-ok">фото есть</span>':'<span class="pill p-wait">нет фото</span>'}</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+function issueForm(){
+  if(!draft)draft={cid:'c1',who:'',lines:[{pid:'',qty:''}],err:''};
+  const avail=S.products.filter(p=>stockOf(p.id).left>0);
+  return `<div class="head"><div><button class="btn link sm" data-back="issues">← Выдачи</button><h1>Новая выдача</h1></div></div>
+  <form class="card" id="iform" novalidate>
+    <div class="row">
+      <div class="f"><label for="if-cid">Подрядчик</label><select id="if-cid" data-d="cid">${S.contractors.map(c=>`<option value="${c.id}" ${draft.cid===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
+      <div class="f" style="flex:1;min-width:200px"><label for="if-who">Кто получает (ФИО)</label><input id="if-who" value="${esc(draft.who)}" data-d="who" placeholder="Фамилия И."></div>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Товар</th><th class="num">На складе</th><th class="num">Выдать</th><th></th></tr></thead><tbody>
+    ${draft.lines.map((l,i)=>`<tr><td><select id="il-p${i}" data-line="${i}" data-k="pid" aria-label="Товар"><option value="">— выберите —</option>${avail.map(p=>`<option value="${p.id}" ${l.pid===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></td>
+      <td class="num">${l.pid?fmt(stockOf(l.pid).left)+' '+prod(l.pid).unit:''}</td>
+      <td class="num"><input id="il-q${i}" class="q" inputmode="decimal" value="${l.qty}" data-line="${i}" data-k="qty" aria-label="Выдать"></td>
+      <td>${draft.lines.length>1?`<button type="button" class="btn link sm del" data-delline="${i}" aria-label="Удалить строку">✕</button>`:''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div><button type="button" class="btn ghost sm" data-act="addLine">+ Добавить строку</button></div>
+    ${draft.err?`<p class="err" role="alert">${esc(draft.err)}</p>`:''}
+    <div><button type="submit" class="btn">Оформить накладную</button></div>
+  </form>`;
+}
+function submitIssue(){
+  const ls=draft.lines.filter(l=>l.pid);
+  if(!draft.who.trim()){draft.err='Впишите ФИО того, кто получает материал.';return render()}
+  if(!ls.length){draft.err='Добавьте хотя бы один товар.';return render()}
+  for(const l of ls){const left=stockOf(l.pid).left,q=+String(l.qty).replace(',','.');
+    if(!(q>0)){draft.err='Укажите количество для «'+prod(l.pid).name+'».';return render()}
+    if(q>left){draft.err='«'+prod(l.pid).name+'»: на складе только '+fmt(left)+' '+prod(l.pid).unit+'. Выдать больше остатка нельзя.';return render()}}
+  const no='Н-'+String(++S.seq.n).padStart(4,'0');
+  const n={id:'n'+Date.now(),no,date:today(),cid:draft.cid,who:draft.who.trim(),lines:ls.map(l=>({pid:l.pid,qty:+String(l.qty).replace(',','.')})),photo:''};
+  S.issues.push(n);addLog('Выдача '+no+' → '+con(n.cid).name+', получил '+n.who);
+  toast('Накладная '+no+' оформлена');go('issues',n.id);
+}
+function waybill(id){
+  const n=S.issues.find(x=>x.id===id);
+  return `<div class="head"><div><button class="btn link sm" data-back="issues">← Выдачи</button><h1>Накладная ${n.no}</h1></div>
+    <div class="row">${expBtns('waybill:'+n.id)}</div>
+    ${n.photo?'<span class="pill p-ok">подписана, фото: '+esc(n.photo)+'</span>':(role==='zav'?`<label class="file btn ghost" for="photo-${n.id}">Прикрепить фото подписи<input type="file" id="photo-${n.id}" accept="image/*" data-photo="${n.id}"></label>`:'<span class="pill p-wait">нет фото подписи</span>')}</div>
+  <div class="scroll"><div class="waybill">
+    <h3>Накладная на выдачу № ${n.no} от ${dd(n.date)}.${n.date.slice(0,4)}</h3>
+    <div>Получатель: <b>${esc(con(n.cid).name)}</b></div>
+    <table><thead><tr><th>№</th><th>Наименование</th><th>Ед.</th><th class="num">Кол-во</th></tr></thead><tbody>
+    ${n.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(prod(l.pid).name)}</td><td>${prod(l.pid).unit}</td><td class="num">${fmt(l.qty)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="sign"><div><b>Завсклад</b>Отпустил: ФИО, подпись</div><div><b>${esc(n.who)}</b>Получил: подпись</div></div>
+  </div></div>
+  ${copyBox()}
+  <p class="note">В рабочей программе накладная откроется как PDF для печати. Подписанный лист завсклад фотографирует и прикрепляет сюда.</p>`;
+}
+
+/* ---------- Остатки ---------- */
+function stock(){
+  const pr=prices();
+  if(view)return productView(view);
+  const rows=S.products.map(p=>({p,s:stockOf(p.id),a:avgPrice(p.id)})).filter(x=>x.s.ordered||x.s.recv);
+  let total=0;rows.forEach(x=>total+=x.s.left*x.a);
+  return `<div class="head"><h1>Остатки</h1><div class="row">${pr?`<span class="num"><b>Всего: ${fmt(total)} сум</b></span>`:''}${expBtns('stock')}</div></div>${copyBox()}
+  <div class="card"><div class="scroll"><table><thead><tr><th>Товар</th><th>Ед.</th>${pr?'<th class="num">Закуплено</th>':''}<th class="num">Принято</th><th class="num">Выдано</th><th class="num">Возврат</th><th class="num">Остаток</th>${pr?'<th class="num">Ср. цена</th><th class="num">Остаток, сум</th>':''}</tr></thead><tbody>
+  ${rows.map(({p,s,a})=>`<tr class="click" data-prod="${p.id}"><td>${esc(p.name)}</td><td>${p.unit}</td>${pr?`<td class="num">${fmt(s.ordered)}</td>`:''}<td class="num" style="${s.recv<s.ordered&&pr?'color:var(--bad)':''}">${fmt(s.recv)}</td><td class="num">${fmt(s.iss)}</td><td class="num">${fmt(s.ret)}</td><td class="num"><b>${fmt(s.left)}</b></td>${pr?`<td class="num">${fmt(Math.round(a))}</td><td class="num">${fmt(Math.round(s.left*a))}</td>`:''}</tr>`).join('')}
+  </tbody></table></div>
+  ${pr?'':'<p class="note">Роль «Завсклад»: цен и сумм нет. В рабочей программе сервер их вообще не отдаёт этой роли.</p>'}</div>`;
+}
+function productView(pid){
+  const p=prod(pid),pr=prices(),ev=[];
+  S.purchases.forEach(z=>z.lines.forEach(l=>{if(l.pid===pid){ev.push({d:z.date,t:'Закупка '+z.no,q:'+'+fmt(l.qty)+' заказано',price:l.price});if(z.status!=='transit')ev.push({d:z.recvDate,t:'Приёмка '+z.no,q:'+'+fmt(z.recv[pid]||0)})}}));
+  S.issues.forEach(n=>n.lines.forEach(l=>{if(l.pid===pid)ev.push({d:n.date,t:'Выдача '+n.no+' → '+con(n.cid).name,q:'−'+fmt(l.qty)})}));
+  S.returns.forEach(v=>v.lines.forEach(l=>{if(l.pid===pid)ev.push({d:v.date,t:'Возврат поставщику',q:'−'+fmt(l.qty)})}));
+  ev.sort((a,b)=>a.d.localeCompare(b.d));
+  return `<div class="head"><div><button class="btn link sm" data-back="stock">← Остатки</button><h1>${esc(p.name)}</h1></div><b class="num">Остаток: ${fmt(stockOf(pid).left)} ${p.unit}</b></div>
+  <div class="card"><div class="scroll"><table><thead><tr><th>Дата</th><th>Документ</th><th class="num">Кол-во</th>${pr?'<th class="num">Цена</th>':''}</tr></thead><tbody>
+  ${ev.map(e=>`<tr><td>${dd(e.d)}</td><td>${esc(e.t)}</td><td class="num">${e.q}</td>${pr?`<td class="num">${e.price?fmt(e.price):''}</td>`:''}</tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- Поставщики ---------- */
+function suppliers(){
+  const sid=(view&&view.sid)||'s1',s=sup(sid),d=debt(sid),ops=supOps(sid);
+  const run={uzs:s.open.uzs,usd:s.open.usd};
+  const form=view&&view.form;
+  return `<div class="head"><h1>Поставщики</h1>
+    <div class="f"><label for="sup-sel">Поставщик</label><select id="sup-sel">${S.suppliers.map(x=>`<option value="${x.id}" ${x.id===sid?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div>
+  <div class="kpis">
+    <div class="kpi"><small>Долг на начало</small><b>${fmt(s.open.uzs)}</b><small>+ ${fmt(s.open.usd)} $ ${s.note?'· '+esc(s.note):''}</small></div>
+    <div class="kpi"><small>Долг сейчас, сум</small><b style="color:var(--warn)">${fmt(d.uzs)}</b><small>изменение ${d.uzs-s.open.uzs>=0?'+':''}${fmt(d.uzs-s.open.uzs)}</small></div>
+    <div class="kpi"><small>Долг сейчас, $</small><b>${fmt(d.usd)}</b><small>ведётся отдельно от сумов</small></div>
+  </div>
+  <div class="row"><button class="btn ghost" data-supform="pay">+ Оплата или скидка</button><button class="btn ghost" data-supform="ret">+ Возврат товара</button>${expBtns('akt:'+sid)}</div>${copyBox()}
+  ${form==='pay'?payForm(sid):form==='ret'?retForm(sid):''}
+  <div class="card"><h2>Акт сверки</h2><div class="scroll"><table><thead><tr><th>Дата</th><th>Операция</th><th></th><th class="num">Долг +</th><th class="num">Долг −</th><th class="num">Сальдо, сум</th></tr></thead><tbody>
+  <tr><td></td><td>Сальдо на начало</td><td></td><td></td><td></td><td class="num">${fmt(s.open.uzs)}</td></tr>
+  ${ops.map(o=>{run[o.cur]+=(o.plus||0)-(o.minus||0);return `<tr><td>${dd(o.d)}</td><td>${esc(o.t)}</td><td>${payPill(o.pill)}</td><td class="num">${o.plus?money(o.plus,o.cur):''}</td><td class="num">${o.minus?money(o.minus,o.cur):''}</td><td class="num">${fmt(run.uzs)}${o.cur==='usd'?' · '+fmt(run.usd)+' $':''}</td></tr>`}).join('')}
+  </tbody></table></div><p class="note">Акт выгружается в Excel кнопкой выше — для сверки с актом из 1С поставщика.</p></div>`;
+}
+function payForm(sid){
+  return `<form class="card" id="payform" data-sid="${sid}" novalidate><h3>Оплата или скидка</h3><div class="row">
+    <div class="f"><label for="pay-date">Дата</label><input id="pay-date" type="date" value="${today()}"></div>
+    <div class="f"><label for="pay-type">Тип</label><select id="pay-type"><option value="pay">Оплата</option><option value="discount">Скидка</option></select></div>
+    <div class="f"><label for="pay-method">Способ</label><select id="pay-method"><option value="cash">Наличные</option><option value="perech">Перечисление</option></select></div>
+    <div class="f"><label for="pay-cur">Валюта</label><select id="pay-cur"><option value="uzs">сум</option><option value="usd">$</option></select></div>
+    <div class="f"><label for="pay-amount">Сумма</label><input id="pay-amount" class="pr" inputmode="decimal" placeholder="0"></div>
+    <button type="submit" class="btn">Провести</button><button type="button" class="btn link" data-supform="">Отмена</button></div><p class="err" id="pay-err"></p></form>`;
+}
+function retForm(sid){
+  const avail=S.products.filter(p=>stockOf(p.id).left>0);
+  return `<form class="card" id="retform" data-sid="${sid}" novalidate><h3>Возврат товара поставщику</h3><div class="row">
+    <div class="f"><label for="ret-p">Товар</label><select id="ret-p">${avail.map(p=>`<option value="${p.id}">${esc(p.name)} (на складе ${fmt(stockOf(p.id).left)})</option>`).join('')}</select></div>
+    <div class="f"><label for="ret-q">Кол-во</label><input id="ret-q" class="q" inputmode="decimal" placeholder="0"></div>
+    <div class="f"><label for="ret-pr">Цена возврата</label><input id="ret-pr" class="pr" inputmode="decimal" value="${avail[0]?Math.round(avgPrice(avail[0].id)):''}"></div>
+    <button type="submit" class="btn">Провести возврат</button><button type="button" class="btn link" data-supform="">Отмена</button></div>
+    <p class="note">Возврат уменьшит остаток на складе и долг поставщику.</p><p class="err" id="ret-err"></p></form>`;
+}
+
+/* ---------- Отчёты ---------- */
+function reports(){
+  const day=(view&&view.day)||today();
+  const zs=S.purchases.filter(z=>z.date===day),rs=S.purchases.filter(z=>z.recvDate===day),ns=S.issues.filter(n=>n.date===day);
+  const by={debt:0,cash:0,perech:0};S.purchases.filter(z=>z.cur==='uzs').forEach(z=>by[z.pay]+=lineSum(z.lines));
+  return `<div class="head"><h1>Отчёт за день</h1><div class="row"><div class="f"><label for="rep-day">Дата</label><input id="rep-day" type="date" value="${day}"></div>${expBtns('day:'+day)}</div></div>${copyBox()}
+  <div class="kpis">
+    <div class="kpi"><small>Отправлено на склад</small><b>${zs.length}</b><small>${zs.reduce((a,z)=>a+z.lines.filter(l=>l.pid).length,0)} позиций · ${fmt(zs.reduce((a,z)=>a+lineSum(z.lines),0))} сум</small></div>
+    <div class="kpi"><small>Принято складом</small><b>${rs.length}</b><small>${rs.filter(z=>z.status==='diff').length} с расхождением</small></div>
+    <div class="kpi"><small>Выдано подрядчикам</small><b>${ns.length}</b><small>накладных</small></div>
+  </div>
+  <div class="card"><h2>Что отправлено ${dd(day)}</h2>${zs.length?`<div class="scroll"><table><thead><tr><th>Закупка</th><th>Товар</th><th class="num">Кол-во</th><th class="num">Сумма</th><th>Оплата</th></tr></thead><tbody>
+  ${zs.flatMap(z=>z.lines.map(l=>`<tr><td>${z.no}</td><td>${esc(lineName(l))}</td><td class="num">${fmt(l.qty)}</td><td class="num">${money(l.qty*l.price,z.cur)}</td><td>${payPill(z.pay)}</td></tr>`)).join('')}
+  </tbody></table></div>`:'<p class="muted">В этот день закупок не было. Попробуйте 02.11, 03.11 или 05.11.</p>'}</div>
+  <div class="card"><h2>Закупки по способу оплаты, всего</h2><div class="scroll"><table><tbody>
+  ${Object.entries(PAY).map(([k,v])=>`<tr><td>${payPill(k)} ${v}</td><td class="num">${fmt(by[k])} сум</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- Сценарии ---------- */
+const SC=[
+  {id:'a',t:'Закупка в долг',steps:['Роль «Снабженец» → Закупки → «+ Новая закупка».','Выберите 2–3 товара и строку «Доставка». Оплата — «В долг».','Отправьте на склад. Роль «Руководитель» → Поставщики: долг вырос на сумму закупки.']},
+  {id:'b',t:'Приёмка с расхождением',steps:['Роль «Завсклад» → Приёмка → закупка в пути → «Принять».','В одной строке впишите меньше, чем отправлено.','Роль «Руководитель» → Главная: в журнале расхождение, в Закупках статус красный.']},
+  {id:'c',t:'Завсклад не видит цен',steps:['Роль «Завсклад» → Остатки, Приёмка, Выдача.','Проверьте: нигде нет цен и сумм, только наименования и количество.']},
+  {id:'d',t:'Частичная выдача и накладная',steps:['Роль «Завсклад» → Выдача → «+ Новая выдача».','Выберите подрядчика, впишите ФИО, выдайте часть остатка.','Попробуйте выдать больше остатка: программа не даст.','На накладной прикрепите фото подписи (любая картинка).']},
+  {id:'e',t:'Остаток считает программа',steps:['Роль «Руководитель» → Остатки: принято − выдано − возврат = остаток.','Нажмите на товар: видна вся история движения с документами.']},
+  {id:'f',t:'Оплата, скидка, возврат',steps:['Роль «Руководитель» → Поставщики → «+ Оплата или скидка»: проведите оплату наличными.','Проведите скидку и возврат товара.','Проверьте акт сверки: сальдо после каждой операции.']},
+  {id:'g',t:'Отчёт за день',steps:['Роль «Руководитель» → Отчёты.','Выберите сегодняшнюю дату: видно, что отправлено, принято и выдано за день.']},
+  {id:'h',t:'Выгрузка в Excel',steps:['Закупки, Остатки, Выдача, накладная, Поставщики (акт сверки), Отчёты: кнопка «Скачать Excel».','Откройте файл: числа — числами, можно считать формулами.','Роль «Завсклад» → Остатки → выгрузка: в файле нет цен и сумм.']}
+];
+function scen(){
+  const done=SC.filter(s=>S.checks[s.id]).length;
+  return `<div class="head"><h1>Сценарии теста</h1><span class="num">${done} из ${SC.length} проверено</span></div>
+  <p class="muted">Пройдите сценарии и отметьте проверенные. Замечания по ходу записывайте — их соберём в правки для рабочей программы.</p>
+  <div class="scen">${SC.map(s=>`<div class="card"><label class="chk" for="sc-${s.id}"><input type="checkbox" id="sc-${s.id}" data-check="${s.id}" ${S.checks[s.id]?'checked':''}>${s.t}</label><ol>${s.steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`).join('')}</div>`;
+}
+
+/* ---------- Справочники ---------- */
+const DSUB={products:'Товары',suppliers:'Поставщики',contractors:'Подрядчики'};
+const usedProd=id=>S.purchases.some(z=>z.lines.some(l=>l.pid===id))||S.issues.some(n=>n.lines.some(l=>l.pid===id))||S.returns.some(v=>v.lines.some(l=>l.pid===id));
+const usedSup=id=>S.purchases.some(z=>z.sid===id)||S.payments.some(o=>o.sid===id)||S.returns.some(v=>v.sid===id);
+const usedCon=id=>S.issues.some(n=>n.cid===id);
+function dict(){
+  const subs=role==='boss'?Object.keys(DSUB):['products'];
+  const sub=subs.includes(view&&view.sub)?view.sub:'products',ed=view&&view.edit;
+  const add={products:'+ Добавить товар',suppliers:'+ Добавить поставщика',contractors:'+ Добавить подрядчика'}[sub];
+  let list='';
+  if(sub==='products')list=`<table><thead><tr><th>Наименование</th><th>Ед.</th><th class="num">Цена, ориентир</th><th class="num">На складе</th><th></th></tr></thead><tbody>
+    ${S.products.map(p=>`<tr class="click" data-dedit="${p.id}"><td>${esc(p.name)}</td><td>${esc(p.unit)}</td><td class="num">${p.price?fmt(p.price):'—'}</td><td class="num">${fmt(stockOf(p.id).left)}</td><td><span class="btn link sm">Изменить</span></td></tr>`).join('')}</tbody></table>`;
+  if(sub==='suppliers')list=`<table><thead><tr><th>Название</th><th>Телефон</th><th class="num">Долг на начало</th><th class="num">Долг сейчас</th><th></th></tr></thead><tbody>
+    ${S.suppliers.map(s=>{const d=debt(s.id);return `<tr class="click" data-dedit="${s.id}"><td>${esc(s.name)}</td><td>${esc(s.phone||'—')}</td><td class="num">${fmt(s.open.uzs)}${s.open.usd?' + '+fmt(s.open.usd)+' $':''}</td><td class="num">${fmt(d.uzs)}${d.usd?' + '+fmt(d.usd)+' $':''}</td><td><span class="btn link sm">Изменить</span></td></tr>`}).join('')}</tbody></table>`;
+  if(sub==='contractors')list=`<table><thead><tr><th>Название / ФИО</th><th>Объект</th><th>Телефон</th><th class="num">Выдач</th><th></th></tr></thead><tbody>
+    ${S.contractors.map(c=>`<tr class="click" data-dedit="${c.id}"><td>${esc(c.name)}</td><td>${esc(c.obj||'—')}</td><td>${esc(c.phone||'—')}</td><td class="num">${S.issues.filter(n=>n.cid===c.id).length}</td><td><span class="btn link sm">Изменить</span></td></tr>`).join('')}</tbody></table>`;
+  return `<div class="head"><h1>Справочники</h1><button class="btn" data-dedit="new">${add}</button></div>
+  ${subs.length>1?`<div><div class="seg">${subs.map(k=>`<button type="button" class="${k===sub?'on':''}" data-dsub="${k}">${DSUB[k]}</button>`).join('')}</div></div>`:''}
+  ${ed?dictForm(sub,ed):''}
+  <div class="card"><div class="scroll">${list}</div></div>`;
+}
+function dictForm(sub,id){
+  const isNew=id==='new',coll={products:S.products,suppliers:S.suppliers,contractors:S.contractors}[sub];
+  const x=isNew?{}:coll.find(i=>i.id===id)||{};
+  const used=!isNew&&{products:usedProd,suppliers:usedSup,contractors:usedCon}[sub](id);
+  const inp=(k,label,val,extra='')=>`<div class="f"><label for="df-${k}">${label}</label><input id="df-${k}" value="${esc(val??'')}" ${extra}></div>`;
+  let fields='';
+  if(sub==='products')fields=inp('name','Наименование',x.name,'style="min-width:280px"')+
+    `<div class="f"><label for="df-unit">Единица</label><select id="df-unit">${UNITS.map(u=>`<option ${(x.unit||'шт')===u?'selected':''}>${u}</option>`).join('')}</select></div>`+
+    inp('price','Цена, ориентир (сум)',x.price||'','class="pr" inputmode="decimal"');
+  if(sub==='suppliers')fields=inp('name','Название',x.name,'style="min-width:260px"')+inp('phone','Телефон',x.phone,'inputmode="tel"')+
+    inp('open-uzs','Долг на начало, сум',x.open?x.open.uzs:0,'class="pr" inputmode="decimal"')+inp('open-usd','Долг на начало, $',x.open?x.open.usd:0,'class="pr" inputmode="decimal"');
+  if(sub==='contractors')fields=inp('name','Название или ФИО',x.name,'style="min-width:260px"')+inp('obj','Объект',x.obj)+inp('phone','Телефон',x.phone,'inputmode="tel"');
+  return `<form class="card" id="dform" data-sub="${sub}" data-id="${id}" novalidate>
+    <h3>${isNew?{products:'Новый товар',suppliers:'Новый поставщик',contractors:'Новый подрядчик'}[sub]:'Изменить: '+esc(x.name)}</h3>
+    <div class="row">${fields}</div>
+    ${sub==='products'?'<p class="note">Цена — для подсказки в форме закупки. Фактическая цена указывается в каждой закупке.</p>':''}
+    <p class="err" id="df-err" role="alert"></p>
+    <div class="row"><button type="submit" class="btn">Сохранить</button><button type="button" class="btn link" data-dedit="">Отмена</button>
+    ${isNew?'':used?'<span class="muted small">Удалить нельзя: есть документы с этой записью</span>':`<button type="button" class="btn link del" data-ddel="${id}">Удалить</button>`}</div>
+  </form>`;
+}
+const num=v=>+String(v).replace(/\s/g,'').replace(',','.');
+function saveDict(f){
+  const sub=f.dataset.sub,id=f.dataset.id,isNew=id==='new',err=t=>{$('#df-err').textContent=t};
+  const coll={products:S.products,suppliers:S.suppliers,contractors:S.contractors}[sub];
+  const name=$('#df-name').value.trim().replace(/\s+/g,' ');
+  if(!name)return err('Впишите название.');
+  const dup=coll.find(i=>i.id!==id&&i.name.toLowerCase()===name.toLowerCase());
+  if(dup)return err('Запись «'+dup.name+'» уже есть в справочнике.');
+  let rec;
+  if(sub==='products'){const pr=$('#df-price').value.trim()===''?0:num($('#df-price').value);if(!(pr>=0))return err('Цена должна быть числом.');rec={name,unit:$('#df-unit').value,price:pr}}
+  if(sub==='suppliers'){const u=num($('#df-open-uzs').value||0),d=num($('#df-open-usd').value||0);if(isNaN(u)||isNaN(d))return err('Долг на начало должен быть числом (0, если долга нет).');rec={name,phone:$('#df-phone').value.trim(),open:{uzs:u,usd:d}}}
+  if(sub==='contractors')rec={name,obj:$('#df-obj').value.trim(),phone:$('#df-phone').value.trim()};
+  if(isNew){rec.id=sub[0]+Date.now();if(sub==='suppliers')rec.note='';coll.push(rec)}else Object.assign(coll.find(i=>i.id===id),rec);
+  addLog((isNew?'Добавлен':'Изменён')+' в справочник «'+DSUB[sub]+'»: '+name);
+  toast(isNew?'Добавлено: '+name:'Сохранено');view={sub};render();
+}
+
+/* ---------- Вход ---------- */
+function login(){
+  const u=loginPick&&USERS[loginPick];
+  return `<div class="login">
+  <div><h1>Вход в программу</h1><p class="muted">Выберите, кем входите. У каждой роли свой логин и свой набор разделов.</p></div>
+  <div class="who">${Object.entries(USERS).map(([k,x])=>`<button type="button" class="whocard ${loginPick===k?'on':''}" data-pick="${k}" aria-pressed="${loginPick===k}"><b>${ROLES[k]}</b><span>${x.d}</span></button>`).join('')}</div>
+  <form class="card" id="login" novalidate>
+    <div class="f"><label for="lg-login">Логин</label><input id="lg-login" autocomplete="username" value="${u?u.login:''}"></div>
+    <div class="f"><label for="lg-pass">Пароль</label><input id="lg-pass" type="password" autocomplete="current-password"></div>
+    ${loginErr?`<p class="err" role="alert">${esc(loginErr)}</p>`:''}
+    <div><button class="btn" type="submit">Войти</button></div>
+  </form>
+  <div class="card"><h3>Доступы для теста</h3><div class="scroll"><table><thead><tr><th>Роль</th><th>Логин</th><th>Пароль</th><th>Ссылка на вход</th></tr></thead><tbody>
+  ${Object.entries(USERS).map(([k,x])=>`<tr><td>${ROLES[k]}</td><td class="num" style="text-align:left">${x.login}</td><td class="num" style="text-align:left">${x.pass}</td><td class="small">demo.html#${k}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="note">Ссылка с #boss, #snab или #zav открывает вход с уже выбранной ролью — удобно отправить каждому тестеру свою. Это демо: пароли проверяются в браузере и защиты не дают. В рабочей программе у каждого сотрудника будет личная учётная запись на сервере.</p></div>
+  </div>`;
+}
+function doLogin(){
+  const l=$('#lg-login').value.trim().toLowerCase(),p=$('#lg-pass').value;
+  const k=Object.keys(USERS).find(k=>USERS[k].login===l);
+  if(!k||USERS[k].pass!==p){loginErr='Неверный логин или пароль. Доступы для теста — в таблице ниже.';loginPick=k||loginPick;return render()}
+  role=k;loginErr='';try{localStorage.setItem(SESS,role)}catch(e){}
+  go(firstTab(role));toast('Вы вошли как '+ROLES[role].toLowerCase());
+}
+
+/* ---------- экспорт в Excel ---------- */
+// В окне артефакта браузер блокирует скачивание файлов, поэтому там вместо файла копируем таблицу в буфер
+const canDownload=location.protocol==='file:'||/(^|\.)github\.io$/.test(location.hostname)||location.hostname==='localhost';
+let copied=null;
+function expBtns(kind){return canDownload?`<button class="btn ghost sm" data-exp="${kind}">Скачать Excel</button>`:`<button class="btn ghost sm" data-copy="${kind}">Скопировать для Excel</button>`}
+function copyBox(){return copied?`<div class="card"><p class="small">Выделите текст и скопируйте (Ctrl+C), затем вставьте в Excel. Файл .xlsx скачивается в версии на farik9797.github.io/crm/demo.html</p><textarea class="copybox" id="copybox" readonly>${esc(copied)}</textarea></div>`:''}
+const dfull=d=>d?d.slice(8,10)+'.'+d.slice(5,7)+'.'+d.slice(0,4):'';
+const r2=n=>Math.round(n*100)/100;
+function sheet(kind){
+  const pr=prices(),[k,arg]=kind.split(':');
+  if(k==='purchases'){
+    const rows=[['№','Дата','Поставщик','№ накладной поставщика','Оплата','Валюта','Товар','Ед.','Заказано','Принято','Цена','Сумма','Статус']];
+    S.purchases.forEach(z=>z.lines.forEach(l=>{const p=l.pid&&prod(l.pid);
+      rows.push([z.no,dfull(z.date),sup(z.sid).name,z.inv,PAY[z.pay],z.cur==='usd'?'$':'сум',lineName(l),p?p.unit:'рейс',l.qty,l.pid?(z.status==='transit'?'':(z.recv[l.pid]??0)):'',l.price,r2(l.qty*l.price),{transit:'в пути',diff:'расхождение',done:'принято'}[z.status]])}));
+    return {title:'Закупки',file:'zakupki',rows};
+  }
+  if(k==='stock'){
+    const h=['Товар','Ед.'];if(pr)h.push('Закуплено');h.push('Принято','Выдано','Возврат','Остаток');if(pr)h.push('Ср. цена','Остаток, сум');
+    const rows=[h];
+    S.products.forEach(p=>{const s=stockOf(p.id),a=avgPrice(p.id);if(!s.ordered&&!s.recv)return;
+      const r=[p.name,p.unit];if(pr)r.push(s.ordered);r.push(s.recv,s.iss,s.ret,s.left);if(pr)r.push(Math.round(a),Math.round(s.left*a));rows.push(r)});
+    return {title:'Остатки на '+dfull(today()),file:'ostatki',rows};
+  }
+  if(k==='issues'){
+    const h=['№','Дата','Подрядчик','Получил','Товар','Ед.','Кол-во'];if(pr)h.push('Сумма по ср. цене');h.push('Фото подписи');
+    const rows=[h];
+    S.issues.forEach(n=>n.lines.forEach(l=>{const p=prod(l.pid),r=[n.no,dfull(n.date),con(n.cid).name,n.who,p.name,p.unit,l.qty];if(pr)r.push(Math.round(l.qty*avgPrice(l.pid)));r.push(n.photo?'есть':'нет');rows.push(r)}));
+    return {title:'Выдачи подрядчикам',file:'vydachi',rows};
+  }
+  if(k==='waybill'){
+    const n=S.issues.find(x=>x.id===arg),rows=[['№','Наименование','Ед.','Кол-во']];
+    n.lines.forEach((l,i)=>rows.push([i+1,prod(l.pid).name,prod(l.pid).unit,l.qty]));
+    rows.push([],['Получатель',con(n.cid).name],['Отпустил (завсклад)','ФИО, подпись'],['Получил',n.who+', подпись']);
+    return {title:'Накладная на выдачу № '+n.no+' от '+dfull(n.date),file:'nakladnaya-'+n.no,rows};
+  }
+  if(k==='akt'){
+    const s=sup(arg),run={uzs:s.open.uzs,usd:s.open.usd};
+    const rows=[['Дата','Операция','Способ','Валюта','Долг +','Долг −','Сальдо, сум','Сальдо, $'],['','Сальдо на начало','','','','',r2(run.uzs),r2(run.usd)]];
+    const lbl={debt:'в долг',cash:'наличные',perech:'перечисление',disc:'скидка',ret:'возврат'};
+    supOps(arg).forEach(o=>{run[o.cur]+=(o.plus||0)-(o.minus||0);rows.push([dfull(o.d),o.t,lbl[o.pill]||'',o.cur==='usd'?'$':'сум',o.plus?r2(o.plus):'',o.minus?r2(o.minus):'',r2(run.uzs),r2(run.usd)])});
+    rows.push(['','Сальдо на '+dfull(today()),'','','','',r2(run.uzs),r2(run.usd)]);
+    return {title:'Акт сверки: '+s.name,file:'akt-sverki',rows};
+  }
+  if(k==='day'){
+    const rows=[['Раздел','Документ','Товар','Ед.','Кол-во','Сумма','Оплата']];
+    S.purchases.filter(z=>z.date===arg).forEach(z=>z.lines.forEach(l=>{const p=l.pid&&prod(l.pid);rows.push(['Отправлено на склад',z.no,lineName(l),p?p.unit:'рейс',l.qty,r2(l.qty*l.price),PAY[z.pay]])}));
+    S.purchases.filter(z=>z.recvDate===arg).forEach(z=>z.lines.filter(l=>l.pid).forEach(l=>rows.push(['Принято складом',z.no,prod(l.pid).name,prod(l.pid).unit,z.recv[l.pid]??0,'',''])));
+    S.issues.filter(n=>n.date===arg).forEach(n=>n.lines.forEach(l=>rows.push(['Выдано: '+con(n.cid).name,n.no,prod(l.pid).name,prod(l.pid).unit,l.qty,'',''])));
+    return {title:'Отчёт за '+dfull(arg),file:'otchet-'+arg,rows};
+  }
+}
+function download(kind){
+  if(typeof XLSX==='undefined'){toast('Не загрузилась библиотека Excel. Проверьте интернет и обновите страницу.');return}
+  const d=sheet(kind),aoa=[[d.title],['Выгружено '+dfull(today())+', роль: '+ROLES[role]],[]].concat(d.rows);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=d.rows[0].map((_,c)=>({wch:Math.min(45,Math.max(8,...d.rows.map(r=>String(r[c]??'').length+2)))}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Лист1');
+  XLSX.writeFile(wb,d.file+'.xlsx');toast('Файл '+d.file+'.xlsx скачан');
+}
+function copyTsv(kind){
+  const d=sheet(kind);
+  copied=[d.title].concat(d.rows.map(r=>r.map(v=>typeof v==='number'?String(v).replace('.',','):String(v??'').replace(/[\t\n]/g,' ')).join('\t'))).join('\n');
+  const done=()=>toast('Таблица скопирована. Вставьте в Excel (Ctrl+V)');
+  try{navigator.clipboard.writeText(copied).then(()=>{copied=null;render();done()},()=>{render();const t=$('#copybox');if(t){t.focus();t.select()}})}catch(e){render();const t=$('#copybox');if(t){t.focus();t.select()}}
+}
+
+/* ---------- события ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-pick],[data-tab],[data-layout],[data-nav],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel]');
+  if(!b)return;const ds=b.dataset;
+  if(ds.nav){navOpen=ds.nav==='toggle'?!navOpen:false;return renderChrome(),window.lucide&&lucide.createIcons()}
+  if(ds.layout){layout=+ds.layout;navOpen=false;try{localStorage.setItem(LAY,layout)}catch(e){}return render()}
+  if(ds.exp)return download(ds.exp);
+  if(ds.copy)return copyTsv(ds.copy);
+  copied=null;
+  if(ds.dsub){view={sub:ds.dsub};return render()}
+  if(ds.dedit!==undefined){view={sub:(view&&view.sub)||'products',edit:ds.dedit||null};render();const n=$('#df-name');if(n){n.focus();n.scrollIntoView({block:'center'})}return}
+  if(ds.ddel){const sub=view.sub,k={products:'products',suppliers:'suppliers',contractors:'contractors'}[sub],x=S[k].find(i=>i.id===ds.ddel);S[k]=S[k].filter(i=>i.id!==ds.ddel);addLog('Удалён из справочника «'+DSUB[sub]+'»: '+x.name);toast('Удалено: '+x.name);view={sub};return render()}
+  if(ds.pick){loginPick=ds.pick;loginErr='';render();const p=$('#lg-pass');if(p)p.focus();return}
+  if(ds.tab)return go(ds.tab);
+  if(ds.back)return go(ds.back);
+  if(ds.openZ)return go('purchases',ds.openZ);
+  if(ds.openN)return go('issues',ds.openN);
+  if(ds.recv)return go('receive',ds.recv);
+  if(ds.prod)return go('stock',ds.prod);
+  if(ds.supform!==undefined){view={sid:(view&&view.sid)||'s1',form:ds.supform};return render()}
+  if(ds.seg){draft[ds.seg]=ds.v;return render()}
+  if(ds.delline!==undefined){draft.lines.splice(+ds.delline,1);return render()}
+  const a=ds.act;
+  if(a==='logout'){loginPick=role;role=null;try{localStorage.removeItem(SESS)}catch(e){}view=null;draft=null;return render()}
+  if(a==='reset'){S=seed();view=null;draft=null;toast('Демо сброшено к исходным данным');return render()}
+  if(a==='newPurchase')return go('purchases','new');
+  if(a==='newIssue')return go('issues','new');
+  if(a==='newProdInline'){draft.np={name:'',unit:'шт',err:''};render();$('#np-name').focus();return}
+  if(a==='cancelNewProd'){draft.np=null;return render()}
+  if(a==='saveNewProd'){
+    const name=draft.np.name.trim().replace(/\s+/g,' ');
+    if(!name){draft.np.err='Впишите наименование.';return render()}
+    const dup=S.products.find(p=>p.name.toLowerCase()===name.toLowerCase());
+    if(dup){draft.np.err='«'+dup.name+'» уже есть — выберите его в списке товаров.';return render()}
+    const p={id:'p'+Date.now(),name,unit:draft.np.unit||'шт',price:0};S.products.push(p);addLog('Добавлен в справочник «Товары»: '+name);
+    let l=draft.lines.find(x=>!x.pid);if(!l){l={pid:'',qty:'',price:''};draft.lines.push(l)}l.pid=p.id;
+    draft.np=null;render();toast('Товар добавлен в справочник');const i=draft.lines.indexOf(l),q=$('#pl-q'+i);if(q)q.focus();return;
+  }
+  if(a==='addLine'){draft.lines.push(tab==='purchases'?{pid:'',qty:'',price:''}:{pid:'',qty:''});return render()}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.d&&draft){draft[t.dataset.d]=t.value}
+  if(t.dataset.np&&draft&&draft.np){draft.np[t.dataset.np]=t.value}
+  if(t.dataset.line!==undefined&&draft&&t.tagName==='INPUT'){
+    const i=+t.dataset.line;draft.lines[i][t.dataset.k]=t.value.replace(',','.');
+    if(tab==='purchases'){const l=draft.lines[i],c=$('#pl-s'+i);if(c)c.textContent=fmt((+l.qty||0)*(+l.price||0));$('#pf-total').textContent='Итого: '+money(draftTotal(),draft.cur)}
+  }
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.line!==undefined&&t.tagName==='SELECT'&&draft){
+    const l=draft.lines[+t.dataset.line];l.pid=t.value;
+    if(tab==='purchases'){const p=prod(t.value);l.price=p?p.price:(t.value==='svc'?150000:'');if(!l.qty)l.qty=t.value==='svc'?1:''}
+    return render();
+  }
+  if(t.dataset.d==='sid'&&draft){draft.sid=t.value}
+  if(t.id==='sup-sel'){view={sid:t.value};return render()}
+  if(t.id==='rep-day'){view={day:t.value||today()};return render()}
+  if(t.id==='ret-p'){const p=$('#ret-pr');if(p)p.value=Math.round(avgPrice(t.value))}
+  if(t.dataset.check){S.checks[t.dataset.check]=t.checked;return render()}
+  if(t.dataset.photo&&t.files&&t.files[0]){const n=S.issues.find(x=>x.id===t.dataset.photo);n.photo=t.files[0].name;addLog('Накладная '+n.no+': прикреплено фото подписи');toast('Фото подписи прикреплено');return render()}
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();const f=e.target;
+  if(f.id==='login')return doLogin();
+  if(f.id==='dform')return saveDict(f);
+  if(f.id==='pform')return submitPurchase();
+  if(f.id==='rform')return submitReceive(f);
+  if(f.id==='iform')return submitIssue();
+  if(f.id==='payform'){
+    const amt=+$('#pay-amount').value.replace(/\s/g,'').replace(',','.');
+    if(!(amt>0)){$('#pay-err').textContent='Впишите сумму больше нуля.';return}
+    const o={id:'o'+Date.now(),date:$('#pay-date').value||today(),sid:f.dataset.sid,amount:amt,cur:$('#pay-cur').value,method:$('#pay-method').value,type:$('#pay-type').value};
+    S.payments.push(o);addLog((o.type==='discount'?'Скидка':'Оплата')+' поставщику '+money(amt,o.cur)+(o.type==='pay'?', '+PAY[o.method].toLowerCase():''));
+    toast('Проведено');view={sid:f.dataset.sid};return render();
+  }
+  if(f.id==='retform'){
+    const pid=$('#ret-p').value,q=+$('#ret-q').value.replace(',','.'),pr=+$('#ret-pr').value.replace(/\s/g,'').replace(',','.');
+    if(!pid){$('#ret-err').textContent='На складе нет товара для возврата.';return}
+    const left=stockOf(pid).left;
+    if(!(q>0)||q>left){$('#ret-err').textContent='Количество должно быть больше нуля и не больше остатка ('+fmt(left)+').';return}
+    if(!(pr>0)){$('#ret-err').textContent='Укажите цену возврата.';return}
+    S.returns.push({id:'v'+Date.now(),date:today(),sid:f.dataset.sid,lines:[{pid,qty:q,price:pr}]});
+    addLog('Возврат поставщику: '+prod(pid).name+', '+fmt(q)+' '+prod(pid).unit);toast('Возврат проведён');view={sid:f.dataset.sid};return render();
+  }
+});
+if(role&&!TABS[tab].r.includes(role))tab=firstTab(role);
+render();
+})();
+</script>

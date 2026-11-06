@@ -12,6 +12,9 @@ HEAD='<!doctype html>
 for f in plan.html demo.html; do
   { printf '%s\n' "$HEAD"; cat "$f"; } > "docs/$f"
 done
+# Два вида одной программы: вид выбирается по имени файла
+cp docs/demo.html docs/crm-1.html
+cp docs/demo.html docs/crm-2.html
 cat > docs/index.html <<HTML
 $HEAD
 <title>Учёт склада и закупок</title>
@@ -28,7 +31,8 @@ a.c b{color:var(--accent)} a.c span{display:block;color:var(--muted);font-size:1
 <main>
 <h1>Учёт склада и закупок</h1>
 <a class="c" href="plan.html"><b>План программы</b><span>Роли, процесс, данные, экраны, этапы и вопросы к руководителю</span></a>
-<a class="c" href="demo.html"><b>Демо для теста</b><span>Кликабельный прототип: три роли, закупка, приёмка, выдача, остатки, долг поставщику</span></a>
+<a class="c" href="crm-1.html"><b>Демо, вид 1</b><span>Тёмное меню слева с разделами по группам, страница справа</span></a>
+<a class="c" href="crm-2.html"><b>Демо, вид 2</b><span>Узкая светлая полоса слева со значками, на телефоне меню снизу</span></a>
 </main>
 HTML
 echo "docs/ собран"
