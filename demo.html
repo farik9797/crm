@@ -178,7 +178,8 @@ const TABS={
   stock:{t:'Остатки',r:['boss','snab','zav']},
   suppliers:{t:'Поставщики',r:['boss']},
   reports:{t:'Отчёты',r:['boss']},
-  dict:{t:'Справочники',r:['boss','snab']}
+  dict:{t:'Справочники',r:['boss','snab']},
+  staff:{t:'Персонал',r:['boss']}
 };
 const UNITS=['шт','м','м²','м³','кг','лист','мешок','рулон','упаковка','рейс'];
 // Демо-доступы: проверяются в браузере, защиты не дают
@@ -193,6 +194,8 @@ const layout=(()=>{const u=/crm-([12])\.html/.exec(location.pathname),h=/^#v([12
 const FILE=(/crm-[12]\.html/.exec(location.pathname)||['demo.html'])[0];
 const KEY='sklad-demo-v1-l'+layout;
 
+const seedStaff=()=>[['boss','Азизов Р. (пример)'],['snab','Назаров С. (пример)'],['zav','Умаров Ж. (пример)']]
+  .map(([k,name])=>({id:k,name,phone:'',role:k,login:USERS[k].login,pass:USERS[k].pass,active:true}));
 function seed(){
   const P=[
     ['KNAUF GIPSOKARTON STENAVOY','лист',60500],['KNAUF GIPSOKARTON AGNEUPORNIY','лист',76500],
@@ -209,6 +212,7 @@ function seed(){
       {id:'s1',name:'Поставщик стройматериалов',open:{uzs:150000000,usd:50},note:'пример'},
       {id:'s2',name:'Поставщик Б (пример)',open:{uzs:0,usd:0},note:''}
     ],
+    staff:seedStaff(),
     contractors:[{id:'c1',name:'Подрядчик А (пример)'},{id:'c2',name:'Подрядчик Б (пример)'}],
     purchases:[
       {id:'z1',no:'З-0001',date:'2026-11-02',sid:'s1',inv:'87 901',cur:'uzs',pay:'debt',
@@ -241,20 +245,22 @@ function seed(){
 function load(){try{const s=localStorage.getItem(KEY);if(s)return JSON.parse(s)}catch(e){}return seed()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=load();
-let role=null,tab='home',view=null,draft=null,msg='',loginPick=null,loginErr='';
+if(!S.staff)S.staff=seedStaff();
+const acc=id=>S.staff.find(x=>x.id===id);
+let role=null,meId=null,tab='home',view=null,draft=null,msg='',loginPick=null,loginErr='';
 // Вход хранится в своей вкладке: другая ссылка или вкладка его не перехватывает
 const SESS=KEY+'-session';
-try{const r=sessionStorage.getItem(SESS);if(r&&ROLES[r])role=r}catch(e){}
+try{const u=acc(sessionStorage.getItem(SESS));if(u&&u.active){role=u.role;meId=u.id}}catch(e){}
 // Ссылка demo.html#zav и т.п. открывает вход под этой ролью, если сейчас вошли под другой
-{const h=location.hash.slice(1);if(USERS[h]){loginPick=h;if(role&&role!==h){role=null;try{sessionStorage.removeItem(SESS)}catch(e){}}}}
+{const h=location.hash.slice(1);if(USERS[h]){loginPick=h;if(role&&role!==h){role=null;meId=null;try{sessionStorage.removeItem(SESS)}catch(e){}}}}
 let navOpen=false;
 // Тема одна на браузер; пока не выбрана, следуем настройке устройства
 const THEME='sklad-demo-theme';
 try{const t=localStorage.getItem(THEME);if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}
 const curTheme=()=>document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
 function themeBtn(){const dark=curTheme()==='dark',t=dark?'Светлая тема':'Тёмная тема';return `<button class="themebtn" data-setheme="${dark?'light':'dark'}" aria-label="${t}" title="${t}"><i data-lucide="${dark?'sun':'moon'}"></i><span>${dark?'Светлая':'Тёмная'}</span></button>`}
-const NAV=[['Учёт',['home','purchases','receive','issues','stock']],['Деньги',['suppliers','reports']],['Настройки',['dict']]];
-const ICON={home:'layout-dashboard',purchases:'shopping-cart',receive:'package-check',issues:'clipboard-list',stock:'boxes',suppliers:'wallet',reports:'chart-column',dict:'book-open'};
+const NAV=[['Учёт',['home','purchases','receive','issues','stock']],['Деньги',['suppliers','reports']],['Настройки',['staff','dict']]];
+const ICON={home:'layout-dashboard',purchases:'shopping-cart',receive:'package-check',issues:'clipboard-list',stock:'boxes',suppliers:'wallet',reports:'chart-column',dict:'book-open',staff:'users'};
 const SHORT={suppliers:'Постав.',dict:'Справ.'};
 const firstTab=r=>Object.keys(TABS).find(k=>TABS[k].r.includes(r));
 
@@ -271,7 +277,7 @@ const prices=()=>role!=='zav';
 const lineName=l=>l.svc?l.svc:(prod(l.pid)||{}).name;
 const lineSum=ls=>ls.reduce((a,l)=>a+l.qty*l.price,0);
 function toast(t){const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),2600)}
-function addLog(t){S.log.unshift({d:today(),r:role,t})}
+function addLog(t){S.log.unshift({d:today(),r:role,n:acc(meId).name,t})}
 
 /* ---------- расчёты ---------- */
 function stockOf(pid){
@@ -316,15 +322,23 @@ function renderChrome(){
   if(!role){$('#side').innerHTML='';$('#bar').innerHTML=brand+`<div class="bar-r">${themeBtn()}</div>`;return}
   const groups=NAV.map(([g,ks])=>[g,ks.filter(k=>TABS[k].r.includes(role))]).filter(x=>x[1].length);
   $('#side').innerHTML=brand+`<nav aria-label="Разделы">${groups.map(([g,ks])=>`<div class="grp"><div class="grp-t">${g}</div>${ks.map(k=>`<button class="ni ${k===tab?'on':''}" data-tab="${k}" ${k===tab?'aria-current="page"':''}><i data-lucide="${ICON[k]}"></i><span>${layout===2&&SHORT[k]||TABS[k].t}</span>${badge(k)}</button>`).join('')}</div>`).join('')}</nav>`+
-    (layout===1?`<div class="foot"><div class="me">${ROLES[role]}<span>${USERS[role].login}</span></div><button class="ni" data-act="logout"><i data-lucide="log-out"></i><span>Выйти</span></button></div>`:'');
+    (layout===1?`<div class="foot"><div class="me">${esc(acc(meId).name)}<span>${ROLES[role]} · ${esc(acc(meId).login)}</span></div><button class="ni" data-act="logout"><i data-lucide="log-out"></i><span>Выйти</span></button></div>`:'');
   const group=NAV.find(n=>n[1].includes(tab))[0];
   $('#bar').innerHTML=`<button class="burger" data-nav="toggle" aria-label="Открыть меню" aria-expanded="${navOpen}"><i data-lucide="menu"></i></button>
     <div class="crumb">${group} / <b>${TABS[tab].t}</b></div>
-    <div class="bar-r">${themeBtn()}${layout===2?`<span class="who-now">${ROLES[role]} · ${USERS[role].login}</span><button class="btn link sm" data-act="logout">Выйти</button>`:''}</div>`;
+    <div class="bar-r">${themeBtn()}${layout===2?`<span class="who-now">${esc(acc(meId).name)} · ${ROLES[role]}</span><button class="btn link sm" data-act="logout">Выйти</button>`:''}</div>`;
+}
+// Отключённый сотрудник выходит сразу, смена роли применяется без повторного входа
+function syncMe(){
+  if(!role)return;
+  const u=acc(meId);
+  if(!u||!u.active){role=null;meId=null;view=null;draft=null;navOpen=false;try{sessionStorage.removeItem(SESS)}catch(e){}return}
+  if(u.role!==role){role=u.role;view=null;draft=null;if(!TABS[tab].r.includes(role))tab=firstTab(role)}
 }
 function render(){
+  syncMe();
   renderChrome();
-  const f=role?{home,purchases,receive,issues,stock,suppliers,reports,dict}[tab]:login;
+  const f=role?{home,purchases,receive,issues,stock,suppliers,reports,dict,staff}[tab]:login;
   $('#app').innerHTML=`<div class="banner"><span>Демо для теста. Все данные — примеры. Всё, что вы введёте, хранится только в этом браузере.</span><button class="btn link sm" data-act="reset">Сбросить демо</button></div>`+f();
   if(window.lucide)lucide.createIcons();
   save();
@@ -351,7 +365,7 @@ function home(){
     <div class="kpi"><small>Долг поставщикам</small><b style="color:var(--warn)">${fmt(d.uzs)}</b><small>+ ${fmt(d.usd)} $</small></div>
   </div>
   <div class="card"><h2>Журнал действий</h2><div class="scroll"><table><thead><tr><th>Дата</th><th>Кто</th><th>Действие</th></tr></thead><tbody>
-  ${S.log.slice(0,15).map(l=>`<tr><td>${dd(l.d)}</td><td>${ROLES[l.r]}</td><td>${esc(l.t)}</td></tr>`).join('')}
+  ${S.log.slice(0,15).map(l=>`<tr><td>${dd(l.d)}</td><td>${esc(l.n||ROLES[l.r])}</td><td>${esc(l.t)}</td></tr>`).join('')}
   </tbody></table></div></div>`;
 }
 
@@ -677,29 +691,67 @@ function saveDict(f){
   toast(isNew?'Добавлено: '+name:'Сохранено');view={sub};render();
 }
 
+/* ---------- Персонал ---------- */
+function staff(){
+  const ed=view&&view.edit;
+  return `<div class="head"><h1>Персонал</h1><button class="btn" data-sedit="new">+ Добавить сотрудника</button></div>
+  ${ed?staffForm(ed):''}
+  <div class="card"><div class="scroll"><table><thead><tr><th>ФИО</th><th>Роль</th><th>Телефон</th><th>Логин</th><th>Доступ</th><th></th></tr></thead><tbody>
+  ${S.staff.map(u=>`<tr class="click" data-sedit="${u.id}"><td>${esc(u.name)}${u.id===meId?' <span class="muted small">(вы)</span>':''}</td><td>${ROLES[u.role]}</td><td>${esc(u.phone||'—')}</td><td>${esc(u.login)}</td><td>${u.active?'<span class="pill p-ok">активен</span>':'<span class="muted small">отключён</span>'}</td><td><span class="btn link sm">Изменить</span></td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="note">Это демо: новый сотрудник сможет войти только в этом браузере и по этой ссылке. В рабочей программе учётные записи будут на сервере, и войти можно будет с любого устройства.</p></div>`;
+}
+function staffForm(id){
+  const isNew=id==='new',u=isNew?{role:'zav'}:acc(id)||{},self=id===meId;
+  const inp=(k,label,val,extra='')=>`<div class="f"><label for="sf-${k}">${label}</label><input id="sf-${k}" value="${esc(val??'')}" ${extra}></div>`;
+  return `<form class="card" id="sform" data-id="${id}" novalidate>
+    <h3>${isNew?'Новый сотрудник':'Изменить: '+esc(u.name)}</h3>
+    <div class="row">${inp('name','ФИО',u.name,'style="min-width:260px"')}${inp('phone','Телефон',u.phone,'inputmode="tel"')}
+    <div class="f"><label for="sf-role">Роль</label><select id="sf-role" ${self?'disabled':''}>${Object.keys(ROLES).map(k=>`<option value="${k}" ${u.role===k?'selected':''}>${ROLES[k]}</option>`).join('')}</select></div>
+    ${inp('login','Логин',u.login,'autocomplete="off" autocapitalize="none" spellcheck="false"')}${inp('pass','Пароль',u.pass,'autocomplete="new-password"')}</div>
+    <p class="note">${Object.keys(ROLES).map(k=>ROLES[k]+': '+USERS[k].d.toLowerCase()).join('. ')}.${self?' Свою роль изменить нельзя.':''}</p>
+    <p class="err" id="sf-err" role="alert"></p>
+    <div class="row"><button type="submit" class="btn">Сохранить</button><button type="button" class="btn link" data-sedit="">Отмена</button>
+    ${isNew?'':self?'<span class="muted small">Свой доступ отключить нельзя</span>':`<button type="button" class="btn link del" data-stoggle="${id}">${u.active?'Отключить доступ':'Вернуть доступ'}</button>`}</div>
+  </form>`;
+}
+function saveStaff(f){
+  const id=f.dataset.id,isNew=id==='new',err=t=>{$('#sf-err').textContent=t};
+  const name=$('#sf-name').value.trim().replace(/\s+/g,' '),lg=$('#sf-login').value.trim().toLowerCase(),pass=$('#sf-pass').value;
+  if(!name)return err('Впишите ФИО сотрудника.');
+  if(!/^[a-z0-9._-]{3,}$/.test(lg))return err('Логин: минимум 3 символа, латинские буквы, цифры, точка, дефис или подчёркивание.');
+  if(S.staff.some(x=>x.id!==id&&x.login===lg))return err('Логин «'+lg+'» уже занят.');
+  if(pass.length<4)return err('Пароль: минимум 4 символа.');
+  const rec={name,phone:$('#sf-phone').value.trim(),role:$('#sf-role').value,login:lg,pass};
+  if(isNew)S.staff.push(Object.assign(rec,{id:'u'+Date.now(),active:true}));else Object.assign(acc(id),rec);
+  addLog((isNew?'Добавлен сотрудник: ':'Изменён сотрудник: ')+name+', '+ROLES[rec.role].toLowerCase());
+  toast(isNew?'Сотрудник добавлен, логин: '+lg:'Сохранено');view=null;render();
+}
+
 /* ---------- Вход ---------- */
 function login(){
-  const u=loginPick&&USERS[loginPick];
+  const u=loginPick&&USERS[loginPick]&&acc(loginPick);
   return `<div class="login">
   <div><h1>Вход в программу</h1><p class="muted">Выберите, кем входите. У каждой роли свой логин и свой набор разделов.</p></div>
   <div class="who">${Object.entries(USERS).map(([k,x])=>`<button type="button" class="whocard ${loginPick===k?'on':''}" data-pick="${k}" aria-pressed="${loginPick===k}"><b>${ROLES[k]}</b><span>${x.d}</span></button>`).join('')}</div>
   <form class="card" id="login" novalidate>
-    <div class="f"><label for="lg-login">Логин</label><input id="lg-login" autocomplete="username" value="${u?u.login:''}"></div>
+    <div class="f"><label for="lg-login">Логин</label><input id="lg-login" autocomplete="username" value="${u?esc(u.login):''}"></div>
     <div class="f"><label for="lg-pass">Пароль</label><input id="lg-pass" type="password" autocomplete="current-password"></div>
     ${loginErr?`<p class="err" role="alert">${esc(loginErr)}</p>`:''}
     <div><button class="btn" type="submit">Войти</button></div>
   </form>
   <div class="card"><h3>Доступы для теста</h3><div class="scroll"><table><thead><tr><th>Роль</th><th>Логин</th><th>Пароль</th><th>Ссылка на вход</th></tr></thead><tbody>
-  ${Object.entries(USERS).map(([k,x])=>`<tr><td>${ROLES[k]}</td><td class="num" style="text-align:left">${x.login}</td><td class="num" style="text-align:left">${x.pass}</td><td class="small">${FILE}#${k}</td></tr>`).join('')}
+  ${Object.keys(USERS).map(k=>[k,acc(k)]).map(([k,x])=>`<tr><td>${ROLES[k]}</td><td class="num" style="text-align:left">${esc(x.login)}</td><td class="num" style="text-align:left">${esc(x.pass)}</td><td class="small">${FILE}#${k}</td></tr>`).join('')}
   </tbody></table></div>
   <p class="note">Ссылка с #boss, #snab или #zav открывает вход с уже выбранной ролью — удобно отправить каждому тестеру свою. Это демо: пароли проверяются в браузере и защиты не дают. В рабочей программе у каждого сотрудника будет личная учётная запись на сервере.</p></div>
   </div>`;
 }
 function doLogin(){
   const l=$('#lg-login').value.trim().toLowerCase(),p=$('#lg-pass').value;
-  const k=Object.keys(USERS).find(k=>USERS[k].login===l);
-  if(!k||USERS[k].pass!==p){loginErr='Неверный логин или пароль. Доступы для теста — в таблице ниже.';loginPick=k||loginPick;return render()}
-  role=k;loginErr='';try{sessionStorage.setItem(SESS,role)}catch(e){}
+  const u=S.staff.find(x=>x.login===l);
+  if(!u||u.pass!==p){loginErr='Неверный логин или пароль. Доступы для теста — в таблице ниже.';return render()}
+  if(!u.active){loginErr='Доступ отключён. Обратитесь к руководителю.';return render()}
+  role=u.role;meId=u.id;loginErr='';try{sessionStorage.setItem(SESS,meId)}catch(e){}
   go(firstTab(role));toast('Вы вошли как '+ROLES[role].toLowerCase());
 }
 
@@ -771,7 +823,7 @@ function copyTsv(kind){
 
 /* ---------- события ---------- */
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-pick],[data-tab],[data-nav],[data-setheme],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel]');
+  const b=e.target.closest('[data-pick],[data-tab],[data-nav],[data-setheme],[data-act],[data-back],[data-open-z],[data-open-n],[data-recv],[data-prod],[data-seg],[data-delline],[data-supform],[data-exp],[data-copy],[data-dsub],[data-dedit],[data-ddel],[data-sedit],[data-stoggle]');
   if(!b)return;const ds=b.dataset;
   if(ds.setheme){document.documentElement.dataset.theme=ds.setheme;try{localStorage.setItem(THEME,ds.setheme)}catch(e){}renderChrome();if(window.lucide)lucide.createIcons();return}
   if(ds.nav){navOpen=ds.nav==='toggle'?!navOpen:false;return renderChrome(),window.lucide&&lucide.createIcons()}
@@ -781,6 +833,8 @@ document.addEventListener('click',e=>{
   if(ds.dsub){view={sub:ds.dsub};return render()}
   if(ds.dedit!==undefined){view={sub:(view&&view.sub)||'products',edit:ds.dedit||null};render();const n=$('#df-name');if(n){n.focus();n.scrollIntoView({block:'center'})}return}
   if(ds.ddel){const sub=view.sub,k={products:'products',suppliers:'suppliers',contractors:'contractors'}[sub],x=S[k].find(i=>i.id===ds.ddel);S[k]=S[k].filter(i=>i.id!==ds.ddel);addLog('Удалён из справочника «'+DSUB[sub]+'»: '+x.name);toast('Удалено: '+x.name);view={sub};return render()}
+  if(ds.sedit!==undefined){view={edit:ds.sedit||null};render();const n=$('#sf-name');if(n){n.focus();n.scrollIntoView({block:'center'})}return}
+  if(ds.stoggle){const u=acc(ds.stoggle);u.active=!u.active;addLog((u.active?'Возвращён доступ: ':'Отключён доступ: ')+u.name);toast(u.active?'Доступ возвращён':'Доступ отключён');view=null;return render()}
   if(ds.pick){loginPick=ds.pick;loginErr='';render();const p=$('#lg-pass');if(p)p.focus();return}
   if(ds.tab)return go(ds.tab);
   if(ds.back)return go(ds.back);
@@ -792,7 +846,7 @@ document.addEventListener('click',e=>{
   if(ds.seg){draft[ds.seg]=ds.v;return render()}
   if(ds.delline!==undefined){draft.lines.splice(+ds.delline,1);return render()}
   const a=ds.act;
-  if(a==='logout'){loginPick=role;role=null;try{sessionStorage.removeItem(SESS)}catch(e){}view=null;draft=null;return render()}
+  if(a==='logout'){loginPick=USERS[meId]?meId:null;role=null;meId=null;try{sessionStorage.removeItem(SESS)}catch(e){}view=null;draft=null;return render()}
   if(a==='reset'){S=seed();view=null;draft=null;toast('Демо сброшено к исходным данным');return render()}
   if(a==='newPurchase')return go('purchases','new');
   if(a==='newIssue')return go('issues','new');
@@ -836,6 +890,7 @@ document.addEventListener('submit',e=>{
   e.preventDefault();const f=e.target;
   if(f.id==='login')return doLogin();
   if(f.id==='dform')return saveDict(f);
+  if(f.id==='sform')return saveStaff(f);
   if(f.id==='pform')return submitPurchase();
   if(f.id==='rform')return submitReceive(f);
   if(f.id==='iform')return submitIssue();
